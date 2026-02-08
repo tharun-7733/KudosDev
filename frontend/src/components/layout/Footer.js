@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Github, Twitter, Linkedin, Mail, ArrowUp } from 'lucide-react';
+import { BookOpen, Github, Linkedin, Mail, ArrowUp } from 'lucide-react';
 
 export const Footer = () => {
     const scrollToTop = () => {
@@ -28,8 +28,10 @@ export const Footer = () => {
                             <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="GitHub">
                                 <Github className="w-5 h-5" />
                             </a>
-                            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="Twitter">
-                                <Twitter className="w-5 h-5" />
+                            <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="X (formerly Twitter)">
+                                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
+                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                </svg>
                             </a>
                             <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="LinkedIn">
                                 <Linkedin className="w-5 h-5" />
