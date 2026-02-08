@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, MoreHorizontal } from 'lucide-react';
 import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
 import { projectAPI } from '../lib/api';
 import {
     StepWizard,
@@ -262,6 +263,7 @@ export default function PublishProject() {
                     />
                 </StepWizard>
             </main>
+            <Footer />
         </div>
     );
 }

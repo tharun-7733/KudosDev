@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../context/AuthContext';
 import { projectAPI } from '../lib/api';
 import {
@@ -214,6 +215,7 @@ export default function Profile() {
                     )}
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

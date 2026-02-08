@@ -11,6 +11,19 @@ export const LoginForm = () => {
     const { login } = useAuth();
     const navigate = useNavigate();
 
+    const handleQuickLogin = async () => {
+        setLoading(true);
+        try {
+            await login('admin@gmail.com', 'admin123');
+            toast.success('Admin login successful!');
+            navigate('/dashboard');
+        } catch (error) {
+            toast.error('Quick login failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -80,6 +93,15 @@ export const LoginForm = () => {
                             className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 rounded-md font-medium transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? 'Signing in...' : 'Sign In'}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleQuickLogin}
+                            disabled={loading}
+                            className="w-full mt-2 border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50 h-10 px-4 py-2 rounded-md font-medium transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            Demo Admin Login
                         </button>
 
                         <p className="text-center text-sm text-muted-foreground">

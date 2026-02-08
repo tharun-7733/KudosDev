@@ -1,0 +1,105 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { BookOpen, Github, Twitter, Linkedin, Mail, ArrowUp } from 'lucide-react';
+
+export const Footer = () => {
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    return (
+        <footer className="bg-card border-t border-border pt-16 pb-8 transition-colors duration-300">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+                    {/* Brand Section */}
+                    <div className="space-y-6">
+                        <Link to="/" className="flex items-center gap-2 group">
+                            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center group-hover:rotate-6 transition-transform">
+                                <BookOpen className="w-6 h-6 text-primary-foreground" />
+                            </div>
+                            <span className="font-heading font-bold text-2xl text-foreground tracking-tight">
+                                KudosDev
+                            </span>
+                        </Link>
+                        <p className="text-muted-foreground leading-relaxed max-w-xs">
+                            The premier platform for developers to showcase their work, build public credibility, and connect with technical opportunities.
+                        </p>
+                        <div className="flex items-center gap-4">
+                            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="GitHub">
+                                <Github className="w-5 h-5" />
+                            </a>
+                            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="Twitter">
+                                <Twitter className="w-5 h-5" />
+                            </a>
+                            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="p-2 rounded-full bg-muted hover:bg-primary/10 hover:text-primary transition-all text-muted-foreground" aria-label="LinkedIn">
+                                <Linkedin className="w-5 h-5" />
+                            </a>
+                        </div>
+                    </div>
+
+                    {/* Platform Links */}
+                    <div>
+                        <h4 className="font-heading font-bold text-lg mb-6 text-foreground">Platform</h4>
+                        <ul className="space-y-4">
+                            <li><Link to="/explore" className="text-muted-foreground hover:text-foreground transition-colors">Explore Projects</Link></li>
+                            <li><Link to="/careers" className="text-muted-foreground hover:text-foreground transition-colors">Career Hub</Link></li>
+                            <li><Link to="/publish" className="text-muted-foreground hover:text-foreground transition-colors">Publish Project</Link></li>
+                            <li><Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Dev Dashboard</Link></li>
+                        </ul>
+                    </div>
+
+                    {/* Resources */}
+                    <div>
+                        <h4 className="font-heading font-bold text-lg mb-6 text-foreground">Resources</h4>
+                        <ul className="space-y-4">
+                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Documentation</a></li>
+                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Blog & Updates</a></li>
+                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">API Reference</a></li>
+                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Community Forum</a></li>
+                        </ul>
+                    </div>
+
+                    {/* Newsletter / Newsletter */}
+                    <div className="space-y-6">
+                        <h4 className="font-heading font-bold text-lg text-foreground">Stay Updated</h4>
+                        <p className="text-sm text-muted-foreground">
+                            Join our newsletter for the latest projects and developer insights.
+                        </p>
+                        <div className="flex gap-2">
+                            <input
+                                type="email"
+                                placeholder="Email address"
+                                className="flex-1 bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            />
+                            <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-all">
+                                Join
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>support@kudosdev.com</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Bar */}
+                <div className="border-t border-border pt-8 mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                        <span>© 2026 KudosDev Inc.</span>
+                        <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
+                        <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
+                    </div>
+                    <button
+                        onClick={scrollToTop}
+                        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-all group"
+                    >
+                        <span>Back to top</span>
+                        <div className="p-1.5 rounded-md bg-muted group-hover:bg-primary/10 transition-colors">
+                            <ArrowUp className="w-4 h-4" />
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </footer>
+    );
+};

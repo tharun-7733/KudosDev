@@ -1,6 +1,5 @@
 import asyncio
-import os
-from motor.motor_asyncio import AsyncIOMotorClient
+from database import db
 from dotenv import load_dotenv
 from passlib.context import CryptContext
 from datetime import datetime, timezone
@@ -11,8 +10,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def create_user():
     try:
-        client = AsyncIOMotorClient(os.environ['MONGO_URL'])
-        db = client[os.environ['DB_NAME']]
         
         email = "test@test.com"
         password = "password"

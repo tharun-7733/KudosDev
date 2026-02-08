@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
 import { FeatureCard } from '../components/FeatureCard';
 import { Code2, Zap, Users } from 'lucide-react';
 
@@ -12,9 +13,6 @@ export default function Home() {
             {/* Hero Section */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
                 <div className="max-w-3xl">
-                    <p className="text-sm font-mono uppercase tracking-wider text-muted-foreground mb-6">
-                        DEVELOPER PORTFOLIO PLATFORM
-                    </p>
                     <h1 className="font-heading font-bold text-5xl md:text-6xl tracking-tight text-foreground leading-tight mb-6">
                         Build Your Developer Credibility in Public
                     </h1>
@@ -47,35 +45,32 @@ export default function Home() {
                         Why Developers Choose Us
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-                        <FeatureCard
-                            icon={Code2}
-                            title="Showcase Projects"
-                            description="Display your work with detailed project pages, tech stacks, and live demos"
-                        />
-                        <FeatureCard
-                            icon={Zap}
-                            title="Track Progress"
-                            description="Monitor your development journey and celebrate your achievements"
-                        />
-                        <FeatureCard
-                            icon={Users}
-                            title="Join Community"
-                            description="Connect with fellow developers and grow your professional network"
-                        />
+                        <div className="group">
+                            <FeatureCard
+                                icon={Code2}
+                                title="Showcase Projects"
+                                description="Display your work with detailed project pages, tech stacks, and live demos"
+                            />
+                        </div>
+                        <div className="group">
+                            <FeatureCard
+                                icon={Zap}
+                                title="Track Progress"
+                                description="Monitor your development journey and celebrate your achievements"
+                            />
+                        </div>
+                        <div className="group">
+                            <FeatureCard
+                                icon={Users}
+                                title="Join Community"
+                                description="Connect with fellow developers and grow your professional network"
+                            />
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
-            <footer className="border-t border-border py-8 mt-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center">
-                        <p className="text-sm text-muted-foreground">
-                            © 2026 KudosDev. Built for developers who build in public.
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 }

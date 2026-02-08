@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { projectAPI } from '../lib/api';
 import { toast } from 'sonner';
 import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
 import {
     Plus, ExternalLink, LayoutGrid, List, Search,
     MoreVertical, Edit2, Trash2, Archive, Pin, Copy, Eye, Clock
@@ -289,6 +290,7 @@ export default function Dashboard() {
                     )}
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }
