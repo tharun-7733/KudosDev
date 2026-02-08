@@ -9,7 +9,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Explore from './pages/Explore';
+import Careers from './pages/Careers';
 import PublishProject from './pages/PublishProject';
+import Profile from './pages/Profile';
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/explore" element={<Explore />} />
+              <Route path="/careers" element={<Careers />} />
+              <Route path="/profile/:username" element={<Profile />} />
               <Route
                 path="/dashboard"
                 element={

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
-import { projectAPI, userAPI } from '../lib/api';
+import { projectAPI } from '../lib/api';
 import {
     Search, Filter, TrendingUp, Clock, Star,
-    ExternalLink, Github, Users, Code2, Briefcase,
-    ChevronDown
+    ExternalLink, Github, Users, Code2, Briefcase
 } from 'lucide-react';
 
 // Tech stack options for filtering
@@ -34,11 +33,7 @@ export default function Explore() {
     const [developers, setDevelopers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchData();
-    }, [activeTab]);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             if (activeTab === 'projects') {
@@ -53,7 +48,11 @@ export default function Explore() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     // Filter projects based on search and tech stack
     const filteredProjects = projects.filter(project => {
