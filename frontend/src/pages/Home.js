@@ -69,15 +69,10 @@ export default function Home() {
             {/* Footer */}
             <footer className="border-t border-border py-8 mt-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between">
+                    <div className="text-center">
                         <p className="text-sm text-muted-foreground">
                             © 2026 KudosDev. Built for developers who build in public.
                         </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Made with</span>
-                            <span className="text-red-500">♥</span>
-                            <span>by developers</span>
-                        </div>
                     </div>
                 </div>
             </footer>
