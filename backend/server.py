@@ -142,6 +142,13 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPassword(BaseModel):
+    token: str
+    new_password: str
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -323,6 +330,50 @@ async def get_all_projects(category: Optional[str] = None, status: Optional[str]
         result.append(ProjectResponse(**p))
     
     return result
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    user = await db.users.find_one({"email": request.email})
+    if not user:
+        # We don't want to reveal if a user exists or not for security reasons
+        # but for this demo, we can just return success anyway
+        return {"message": "If an account exists with this email, a reset link has been sent."}
+    
+    # Generate a temporary reset token (in production, use a secure token and save it in DB)
+    # For demo, we use a simple token with short expiration
+    token_data = {"sub": request.email, "type": "reset"}
+    expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    token_data.update({"exp": expire})
+    reset_token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+    
+    # In a real app, send an email. Here, we just log it.
+    reset_link = f"http://localhost:3000/reset-password/{reset_token}"
+    logger.info(f"PASSWORD RESET LINK for {request.email}: {reset_link}")
+    
+    return {"message": "If an account exists with this email, a reset link has been sent."}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: ResetPassword):
+    try:
+        payload = jwt.decode(data.token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "reset":
+            raise HTTPException(status_code=400, detail="Invalid token type")
+        email = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update password
+    hashed_password = get_password_hash(data.new_password)
+    await db.users.update_one(
+        {"email": email},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    return {"message": "Password reset successfully"}
 
 @api_router.get("/projects/my", response_model=List[ProjectResponse])
 async def get_my_projects(current_user: dict = Depends(get_current_user)):

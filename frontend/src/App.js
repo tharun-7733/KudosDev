@@ -13,6 +13,8 @@ import Careers from './pages/Careers';
 import PublishProject from './pages/PublishProject';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/explore" element={<Explore />} />
               <Route path="/careers" element={<Careers />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/profile/:username" element={<Profile />} />
               <Route
                 path="/dashboard"

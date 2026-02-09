@@ -85,6 +85,14 @@ export const LoginForm = () => {
                                     placeholder="••••••••"
                                 />
                             </div>
+                            <div className="flex justify-end">
+                                <Link
+                                    to="/forgot-password"
+                                    className="text-xs text-accent hover:underline font-medium"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
                         </div>
 
                         <button
