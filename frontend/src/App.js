@@ -12,6 +12,7 @@ import Explore from './pages/Explore';
 import Careers from './pages/Careers';
 import PublishProject from './pages/PublishProject';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -39,6 +40,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <PublishProject />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Settings />
                   </ProtectedRoute>
                 }
               />
