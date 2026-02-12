@@ -10,7 +10,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def create_user():
     try:
-        
         email = "test@test.com"
         password = "password"
         
