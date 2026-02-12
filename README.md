@@ -19,12 +19,16 @@ A platform for developers to showcase projects, track progress, and build credib
 
 ## Quick Start
 
-### 1. Clone
+### 1. Clone & Setup
 
 ```bash
 git clone <repo-url>
 cd KudosD
+npm install
+npm run setup   # Creates .env files from examples
 ```
+
+> **Note:** Edit `backend/.env` and add your `MONGO_URL`.
 
 ### 2. Backend
 

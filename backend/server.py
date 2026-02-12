@@ -1,6 +1,15 @@
+import bcrypt
+import logging
+
+# ---------------------------------------------------------------------------
+# Compatibility Patches (Applied first!)
+# ---------------------------------------------------------------------------
+# Fix for passlib/bcrypt incompatibility in newer versions (4.1+)
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type("About", (object,), {"__version__": bcrypt.__version__})
+
 import uuid
 import os
-import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
@@ -15,15 +24,6 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 from database import db, client
-
-# ---------------------------------------------------------------------------
-# Compatibility Patches
-# ---------------------------------------------------------------------------
-
-import bcrypt
-# Fix for passlib/bcrypt incompatibility in newer versions (4.1+)
-if not hasattr(bcrypt, "__about__"):
-    bcrypt.__about__ = type('About', (object,), {'__version__': bcrypt.__version__})
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -53,20 +53,40 @@ security = HTTPBearer()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
+        # Try passlib first
         return pwd_context.verify(plain_password, hashed_password)
     except Exception as e:
         logger.warning(f"Passlib verification failed, trying direct bcrypt: {e}")
         try:
+            # Fallback to direct bcrypt
             if isinstance(hashed_password, str):
-                hashed_password = hashed_password.encode('utf-8')
-            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
+                hashed_password_bytes = hashed_password.encode("utf-8")
+            else:
+                hashed_password_bytes = hashed_password
+                
+            result = bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password_bytes)
+            if result:
+                logger.info("Direct bcrypt verification succeeded")
+            return result
         except Exception as e2:
             logger.error(f"Direct bcrypt verification also failed: {e2}")
             return False
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    try:
+        # Try passlib first
+        return pwd_context.hash(password)
+    except Exception as e:
+        logger.warning(f"Passlib hashing failed, trying direct bcrypt: {e}")
+        try:
+            # Fallback to direct bcrypt (returns string for DB storage)
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+            return hashed.decode("utf-8")
+        except Exception as e2:
+            logger.error(f"Direct bcrypt hashing also failed: {e2}")
+            raise e2
 
 
 def create_access_token(data: dict) -> str:
@@ -228,9 +248,26 @@ def _user_response(user: dict) -> UserResponse:
 
 def _project_response(project: dict) -> ProjectResponse:
     """Build a ProjectResponse from a raw MongoDB document."""
-    project["created_at"] = parse_datetime(project["created_at"])
-    project["updated_at"] = parse_datetime(project["updated_at"])
-    return ProjectResponse(**project)
+    p = project.copy()
+    
+    # Ensure ID is a string
+    if "_id" in p:
+        del p["_id"]
+        
+    # Handle dates safely
+    p["created_at"] = parse_datetime(p.get("created_at", datetime.now(timezone.utc).isoformat()))
+    p["updated_at"] = parse_datetime(p.get("updated_at", datetime.now(timezone.utc).isoformat()))
+    
+    # Ensure lists exist
+    p["tech_stack"] = p.get("tech_stack", [])
+    p["media_urls"] = p.get("media_urls", [])
+    
+    # Defaults for other required fields if missing
+    p["description"] = p.get("description", "")
+    p["category"] = p.get("category", "Uncategorized")
+    p["status"] = p.get("status", "in_progress")
+    
+    return ProjectResponse(**p)
 
 
 # ---------------------------------------------------------------------------
@@ -454,12 +491,27 @@ async def get_all_projects(category: Optional[str] = None, status: Optional[str]
 
 @api_router.get("/projects/my", response_model=List[ProjectResponse])
 async def get_my_projects(current_user: dict = Depends(get_current_user)):
-    projects = (
-        await db.projects.find({"user_email": current_user["email"]}, {"_id": 0})
-        .sort("created_at", -1)
-        .to_list(100)
-    )
-    return [_project_response(p) for p in projects]
+    try:
+        logger.info(f"Fetching projects for user: {current_user['email']}")
+        projects = (
+            await db.projects.find({"user_email": current_user["email"]}, {"_id": 0})
+            .sort("created_at", -1)
+            .to_list(100)
+        )
+        logger.info(f"Found {len(projects)} projects for {current_user['email']}")
+        
+        response_data = []
+        for p in projects:
+            try:
+                response_data.append(_project_response(p))
+            except Exception as e:
+                logger.error(f"Error building ProjectResponse for project {p.get('project_id')}: {e}")
+                # We could continue or raise
+        
+        return response_data
+    except Exception as e:
+        logger.error(f"Unexpected error in get_my_projects: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @api_router.get("/projects/user/{username}", response_model=List[ProjectResponse])
