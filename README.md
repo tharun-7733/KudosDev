@@ -1,172 +1,117 @@
-# KudosDev - Developer Portfolio Platform
+# KudosDev
 
-A modern platform for developers to showcase their projects, track their progress, and build credibility in public.
+A platform for developers to showcase projects, track progress, and build credibility in public.
 
-## 🚀 Tech Stack
+## Tech Stack
 
-### Frontend
-- **React** - UI Framework
-- **TailwindCSS** - Styling
-- **React Router** - Navigation
-- **Axios** - HTTP Client
-- **Sonner** - Toast Notifications
+| Layer | Technology |
+|---|---|
+| Frontend | React, Tailwind CSS, React Router, Axios |
+| Backend | FastAPI, Motor (async MongoDB driver) |
+| Database | MongoDB |
+| Auth | JWT (python-jose), bcrypt (passlib) |
 
-### Backend
-- **FastAPI** - Python Web Framework
-- **MongoDB** - Database
-- **JWT** - Authentication
-- **Motor** - Async MongoDB Driver
+## Prerequisites
 
-## 📦 Project Structure
+- **Node.js** ≥ 18
+- **Python** ≥ 3.10
+- **MongoDB** (local or [Atlas](https://www.mongodb.com/atlas))
+
+## Quick Start
+
+### 1. Clone
+
+```bash
+git clone <repo-url>
+cd KudosD
+```
+
+### 2. Backend
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env.example .env       # then edit .env with your values
+```
+
+> **Important:** Generate a strong, random `SECRET_KEY` for production.
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+
+cp .env.example .env       # adjust REACT_APP_BACKEND_URL if needed
+```
+
+### 4. Run
+
+From the project root:
+
+```bash
+npm install                # installs concurrently
+npm start                  # starts both backend and frontend
+```
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+
+## Project Structure
 
 ```
 KudosD/
-├── frontend/          # React application
+├── backend/
+│   ├── server.py            # FastAPI application (routes, models, auth)
+│   ├── database.py          # MongoDB connection
+│   ├── requirements.txt     # Python dependencies
+│   └── .env.example         # Environment variable template
+├── frontend/
 │   ├── src/
-│   │   ├── components/    # Reusable components
-│   │   ├── pages/        # Page components
-│   │   ├── context/      # React context
-│   │   ├── lib/          # Utilities & API client
-│   │   └── App.js        # Main app component
-│   └── package.json
-├── backend/           # FastAPI application
-│   ├── server.py         # Main server file
-│   ├── requirements.txt  # Python dependencies
-│   └── .env             # Environment variables
+│   │   ├── components/      # Reusable UI components
+│   │   ├── pages/           # Route-level page components
+│   │   ├── context/         # React context (Auth, Theme)
+│   │   ├── lib/             # API client & utilities
+│   │   └── App.js           # Root component with routing
+│   ├── public/
+│   ├── package.json
+│   └── .env.example
+├── package.json             # Root scripts (concurrently)
 └── README.md
 ```
 
-## 🛠️ Setup & Installation
-
-### Prerequisites
-- Node.js (v14+)
-- Python (v3.8+)
-- MongoDB
-
-### Backend Setup
-
-1. Navigate to backend directory:
-```bash
-cd backend
-```
-
-2. Create virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. Create `.env` file:
-```bash
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=kudosdev_db
-CORS_ORIGINS=http://localhost:3000
-SECRET_KEY=your-secret-key-here-change-in-production
-```
-
-5. Start MongoDB:
-```bash
-brew services start mongodb-community  # macOS
-# or
-sudo systemctl start mongod  # Linux
-```
-
-6. Run the server:
-```bash
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
-```
-
-Backend will be available at http://localhost:8000
-API Docs at http://localhost:8000/docs
-
-### Frontend Setup
-
-1. Navigate to frontend directory:
-```bash
-cd frontend
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Create `.env` file:
-```bash
-REACT_APP_BACKEND_URL=http://localhost:8000
-```
-
-4. Start development server:
-```bash
-npm start
-```
-
-Frontend will be available at http://localhost:3000
-
-## 📖 Features
-
-- ✅ User authentication (Register/Login)
-- ✅ JWT-based authorization
-- ✅ Protected routes
-- ✅ User dashboard
-- ✅ Project management (CRUD operations)
-- ✅ Responsive design
-- ✅ Light mode interface
-- ✅ Professional UI/UX
-
-## 🎨 Design System
-
-KudosDev follows a clean, professional design aesthetic:
-- **Light theme** with subtle accents
-- **Typography**: Space Grotesk (headings), Inter (body), JetBrains Mono (code)
-- **Colors**: White backgrounds, dark text, blue accents
-
-## 📡 API Endpoints
+## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/me` - Update current user
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register a new user |
+| POST | `/api/auth/login` | Log in |
+| GET | `/api/auth/me` | Get current user |
+| PUT | `/api/auth/me` | Update current user |
+| POST | `/api/auth/forgot-password` | Request password reset |
+| POST | `/api/auth/reset-password` | Reset password with token |
 
 ### Users
-- `GET /api/users/{username}` - Get user by username
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/{username}` | Get public user profile |
 
 ### Projects
-- `POST /api/projects` - Create project
-- `GET /api/projects` - Get all projects
-- `GET /api/projects/my` - Get user's projects
-- `GET /api/projects/{id}` - Get project by ID
-- `PUT /api/projects/{id}` - Update project
-- `DELETE /api/projects/{id}` - Delete project
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/projects` | Create project |
+| GET | `/api/projects` | List all projects |
+| GET | `/api/projects/my` | List current user's projects |
+| GET | `/api/projects/user/{username}` | List user's projects |
+| GET | `/api/projects/{id}` | Get project by ID |
+| PUT | `/api/projects/{id}` | Update project |
+| DELETE | `/api/projects/{id}` | Delete project |
 
-## 🚀 Deployment
+## License
 
-### Backend
-Deploy to services like:
-- Render
-- Railway
-- Heroku
-- DigitalOcean
-
-### Frontend
-Deploy to:
-- Vercel
-- Netlify
-- GitHub Pages
-
-### Database
-Use MongoDB Atlas for cloud database
-
-## 📝 License
-
-MIT License
-
-## 👨‍💻 Author
-
-Built with ♥ by developers, for developers who build in public.
+MIT
