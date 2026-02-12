@@ -54,10 +54,10 @@ export const Footer = () => {
                     <div>
                         <h4 className="font-heading font-bold text-lg mb-6 text-foreground">Resources</h4>
                         <ul className="space-y-4">
-                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Documentation</a></li>
-                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Blog & Updates</a></li>
-                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">API Reference</a></li>
-                            <li><a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Community Forum</a></li>
+                            <li><span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">Documentation</span></li>
+                            <li><span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">Blog & Updates</span></li>
+                            <li><span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">API Reference</span></li>
+                            <li><span className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">Community Forum</span></li>
                         </ul>
                     </div>
 
@@ -88,8 +88,8 @@ export const Footer = () => {
                 <div className="border-t border-border pt-8 mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
                         <span>© 2026 KudosDev Inc.</span>
-                        <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-                        <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
+                        <span>Privacy Policy</span>
+                        <span>Terms of Service</span>
                     </div>
                     <button
                         onClick={scrollToTop}

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Header } from '../components/layout/Header';
 import { authAPI } from '../lib/api';
-import { Lock, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Lock, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 export default function ResetPassword() {
     const { token } = useParams();
-    const navigate = useNavigate();
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -62,13 +63,21 @@ export default function ResetPassword() {
                                             <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                                             <input
                                                 id="password"
-                                                type="password"
+                                                type={showPassword ? 'text' : 'password'}
                                                 required
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
-                                                className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-10 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                                 placeholder="••••••••"
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                            >
+                                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
                                         </div>
                                     </div>
 
@@ -80,13 +89,21 @@ export default function ResetPassword() {
                                             <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                                             <input
                                                 id="confirmPassword"
-                                                type="password"
+                                                type={showConfirm ? 'text' : 'password'}
                                                 required
                                                 value={confirmPassword}
                                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                                className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-10 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                                 placeholder="••••••••"
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirm(!showConfirm)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                                aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                                            >
+                                                {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

@@ -17,6 +17,15 @@ from jose import JWTError, jwt
 from database import db, client
 
 # ---------------------------------------------------------------------------
+# Compatibility Patches
+# ---------------------------------------------------------------------------
+
+import bcrypt
+# Fix for passlib/bcrypt incompatibility in newer versions (4.1+)
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type('About', (object,), {'__version__': bcrypt.__version__})
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
@@ -43,7 +52,17 @@ security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        logger.warning(f"Passlib verification failed, trying direct bcrypt: {e}")
+        try:
+            if isinstance(hashed_password, str):
+                hashed_password = hashed_password.encode('utf-8')
+            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password)
+        except Exception as e2:
+            logger.error(f"Direct bcrypt verification also failed: {e2}")
+            return False
 
 
 def get_password_hash(password: str) -> str:
@@ -227,6 +246,35 @@ async def lifespan(app: FastAPI):
         logger.info("Successfully connected to MongoDB")
     except Exception as e:
         logger.error("Failed to connect to MongoDB: %s", e)
+
+    # Ensure the default admin user exists and has the correct password
+    try:
+        admin_email = "admin@gmail.com"
+        seed_user_data = {
+            "email": admin_email,
+            "password": get_password_hash("admin"),
+            "full_name": "Admin User",
+            "username": "adminuser",
+            "bio": "Default admin account for KudosDev",
+            "avatar_url": None,
+            "github_url": None,
+            "linkedin_url": None,
+            "website_url": None,
+            "location": None,
+            "skills": ["React", "Python", "FastAPI"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        
+        # Use update_one with upsert=True to force the credentials to be correct
+        await db.users.update_one(
+            {"email": admin_email},
+            {"$set": seed_user_data},
+            upsert=True
+        )
+        logger.info("Admin user verified and credentials reset → admin@gmail.com / admin")
+    except Exception as e:
+        logger.warning("Could not ensure admin user: %s", e)
+
     yield
     # Shutdown
     client.close()
@@ -289,10 +337,18 @@ async def register(user_data: UserRegister):
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user_data: UserLogin):
+    logger.info(f"Login attempt for: {user_data.email}")
     user = await db.users.find_one({"email": user_data.email})
-    if not user or not verify_password(user_data.password, user["password"]):
+    
+    if not user:
+        logger.warning(f"User not found in DB: {user_data.email}")
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+    if not verify_password(user_data.password, user["password"]):
+        logger.warning(f"Invalid password for: {user_data.email}")
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
+    logger.info(f"Login successful for: {user_data.email}")
     access_token = create_access_token(data={"sub": user_data.email})
     return Token(access_token=access_token, token_type="bearer", user=_user_response(user))
 

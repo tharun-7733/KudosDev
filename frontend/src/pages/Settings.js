@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Header } from '../components/layout/Header';
@@ -19,7 +18,6 @@ import {
 export default function Settings() {
     const { user, updateUser } = useAuth();
     const { theme, toggleTheme } = useTheme();
-    const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
