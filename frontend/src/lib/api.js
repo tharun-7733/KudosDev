@@ -65,6 +65,11 @@ export const blogAPI = {
     react: (id, data) => api.post(`/api/blogs/${id}/reactions`, data),
     toggleBookmark: (id) => api.post(`/api/blogs/${id}/bookmark`),
     getBookmarks: () => api.get('/api/bookmarks'),
+    uploadImage: (formData) => api.post('/api/blogs/upload-image', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
 };
 
 export default api;

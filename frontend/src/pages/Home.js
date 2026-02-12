@@ -51,7 +51,7 @@ export default function Home() {
                         <div>
                             <span className="text-xs font-medium uppercase tracking-widest text-accent mb-3 block">Developer Blog</span>
                             <h2 className="font-heading font-bold text-3xl md:text-4xl tracking-tight text-foreground mb-4">
-                                Share Your Knowledge,<br />Write in Markdown
+                                Write what's on your mind
                             </h2>
                             <p className="text-muted-foreground leading-relaxed mb-6">
                                 A beautiful writing experience built for developers. Write dev logs, tutorials, and opinions with live markdown preview, syntax highlighting, and one-click publishing.

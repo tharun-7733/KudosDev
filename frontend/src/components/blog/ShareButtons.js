@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share2, Twitter, Linkedin, Link as LinkIcon, Check } from 'lucide-react';
+import { Twitter, Linkedin, Link as LinkIcon, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ShareButtons({ title, slug }) {
@@ -48,9 +48,6 @@ export default function ShareButtons({ title, slug }) {
 
     return (
         <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground mr-1 flex items-center gap-1">
-                <Share2 className="w-4 h-4" /> Share
-            </span>
             {shareLinks.map(link => (
                 <a
                     key={link.name}

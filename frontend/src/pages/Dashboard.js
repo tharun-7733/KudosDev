@@ -39,6 +39,7 @@ export default function Dashboard() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState('updated');
     const [activeMenu, setActiveMenu] = useState(null);
+    const [activeBlogMenu, setActiveBlogMenu] = useState(null);
 
     useEffect(() => {
         fetchProjects();
@@ -47,7 +48,10 @@ export default function Dashboard() {
 
     // Close menu when clicking outside
     useEffect(() => {
-        const handleClickOutside = () => setActiveMenu(null);
+        const handleClickOutside = () => {
+            setActiveMenu(null);
+            setActiveBlogMenu(null);
+        };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, []);
@@ -99,11 +103,27 @@ export default function Dashboard() {
     const handleDelete = async (projectId) => {
         if (window.confirm('Are you sure you want to delete this project?')) {
             try {
+                console.log('Attempting to delete project:', projectId);
                 await projectAPI.delete(projectId);
                 setProjects(projects.filter(p => p.project_id !== projectId));
                 toast.success('Project deleted');
             } catch (error) {
+                console.error('Delete project error:', error);
                 toast.error('Failed to delete project');
+            }
+        }
+    };
+
+    const handleDeleteBlog = async (blogId) => {
+        if (window.confirm('Are you sure you want to delete this blog post?')) {
+            try {
+                console.log('Attempting to delete blog:', blogId);
+                await blogAPI.delete(blogId);
+                setBlogs(blogs.filter(b => b.blog_id !== blogId));
+                toast.success('Blog post deleted');
+            } catch (error) {
+                console.error('Delete blog error:', error);
+                toast.error('Failed to delete blog');
             }
         }
     };
@@ -213,12 +233,14 @@ export default function Dashboard() {
                             {blogs.slice(0, 3).map(blog => (
                                 <div
                                     key={blog.blog_id}
-                                    onClick={() => blog.status === 'published'
-                                        ? navigate(`/blog/${blog.slug}`)
-                                        : navigate(`/blog/edit/${blog.blog_id}`)}
-                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group"
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors group relative"
                                 >
-                                    <div className="flex-1 min-w-0">
+                                    <div
+                                        className="flex-1 min-w-0 cursor-pointer"
+                                        onClick={() => blog.status === 'published'
+                                            ? navigate(`/blog/${blog.slug}`)
+                                            : navigate(`/blog/edit/${blog.blog_id}`)}
+                                    >
                                         <h3 className="font-medium text-foreground text-sm truncate group-hover:text-accent transition-colors">
                                             {blog.title}
                                         </h3>
@@ -239,6 +261,48 @@ export default function Dashboard() {
                                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                                             <Eye className="w-3 h-3" /> {blog.view_count || 0}
                                         </span>
+
+                                        {/* Blog Menu */}
+                                        <div className="relative">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveBlogMenu(activeBlogMenu === blog.blog_id ? null : blog.blog_id);
+                                                }}
+                                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                                            >
+                                                <MoreVertical className="w-4 h-4" />
+                                            </button>
+
+                                            {activeBlogMenu === blog.blog_id && (
+                                                <div
+                                                    className="absolute right-0 top-full mt-1 z-50 w-44 bg-popover border border-border rounded-md shadow-lg py-1"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <button
+                                                        onClick={() => navigate(`/blog/edit/${blog.blog_id}`)}
+                                                        className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-muted flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" /> Edit Post
+                                                    </button>
+                                                    {blog.status === 'published' && (
+                                                        <button
+                                                            onClick={() => navigate(`/blog/${blog.slug}`)}
+                                                            className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-muted flex items-center gap-2 transition-colors"
+                                                        >
+                                                            <Eye className="w-4 h-4" /> View Post
+                                                        </button>
+                                                    )}
+                                                    <div className="border-t border-border my-1" />
+                                                    <button
+                                                        onClick={() => handleDeleteBlog(blog.blog_id)}
+                                                        className="w-full px-3 py-2 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" /> Delete Post
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -483,7 +547,7 @@ function GridView({ projects, formatRelativeTime, getStatusBadge, activeMenu, se
 // List View Component
 function ListView({ projects, formatRelativeTime, getStatusBadge, activeMenu, setActiveMenu, onEdit, onDelete, onDuplicate, onArchive, onPin }) {
     return (
-        <div className="border border-border rounded-lg overflow-hidden">
+        <div className="border border-border rounded-lg">
             {/* Table Header */}
             <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 text-xs font-mono uppercase tracking-wider text-muted-foreground border-b border-border">
                 <div className="col-span-5">Project</div>
@@ -679,7 +743,7 @@ function NoResultsState({ onClearFilters }) {
 function LoadingState({ viewMode }) {
     if (viewMode === 'list') {
         return (
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg">
                 {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="px-4 py-4 border-b border-border last:border-b-0">
                         <div className="flex items-center gap-4">

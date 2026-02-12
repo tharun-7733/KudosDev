@@ -12,8 +12,11 @@ import {
     Sun,
     Save,
     UserCircle,
-    Palette
+    Palette,
+    Upload,
+    Camera
 } from 'lucide-react';
+import { blogAPI } from '../lib/api'; // Reuse blogAPI.uploadImage for avatar for now, or use a more general one if exists
 
 export default function Settings() {
     const { user, updateUser } = useAuth();
@@ -21,6 +24,8 @@ export default function Settings() {
 
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = React.useRef(null);
 
     // Profile State
     const [profileData, setProfileData] = useState({
@@ -46,6 +51,40 @@ export default function Settings() {
     const handleAccountChange = (e) => {
         const { name, value } = e.target;
         setAccountData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleAvatarClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleAvatarUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startswith('image/')) {
+            toast.error('Please upload an image file');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        setUploading(true);
+        const toastId = toast.loading('Uploading avatar...');
+        try {
+            // Reusing blogAPI.uploadImage for simplicity if backend endpoint is general enough
+            // or we could add a specific user upload endpoint.
+            const res = await blogAPI.uploadImage(formData);
+            const imageUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}${res.data.url}`;
+
+            setProfileData(prev => ({ ...prev, avatar_url: imageUrl }));
+            toast.success('Avatar uploaded! Click Save Changes to finish.', { id: toastId });
+        } catch (error) {
+            toast.error('Failed to upload avatar', { id: toastId });
+        } finally {
+            setUploading(false);
+            e.target.value = ''; // Reset input
+        }
     };
 
     const handleProfileSubmit = async (e) => {
@@ -126,29 +165,51 @@ export default function Settings() {
                         {activeTab === 'profile' && (
                             <form onSubmit={handleProfileSubmit} className="space-y-6">
                                 <div className="space-y-4">
-                                    {/* Avatar URL */}
+                                    {/* Avatar Upload */}
                                     <div>
-                                        <label className="block text-sm font-medium text-foreground mb-2">
-                                            Avatar URL
+                                        <label className="block text-sm font-medium text-foreground mb-4">
+                                            Profile Picture
                                         </label>
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-16 h-16 rounded-full bg-muted overflow-hidden flex-shrink-0 border border-border">
-                                                {profileData.avatar_url ? (
-                                                    <img src={profileData.avatar_url} alt="Preview" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                                        <User className="w-8 h-8" />
+                                        <div className="flex items-center gap-6">
+                                            <div
+                                                onClick={handleAvatarClick}
+                                                className="group relative cursor-pointer"
+                                            >
+                                                <div className="w-24 h-24 rounded-full bg-muted overflow-hidden flex-shrink-0 border-4 border-border transition-all group-hover:border-accent group-hover:opacity-80">
+                                                    {profileData.avatar_url ? (
+                                                        <img src={profileData.avatar_url} alt="Preview" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                                            <User className="w-12 h-12" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="bg-black/40 rounded-full p-2 text-white">
+                                                        <Camera className="w-6 h-6" />
                                                     </div>
-                                                )}
+                                                </div>
+                                                <input
+                                                    type="file"
+                                                    ref={fileInputRef}
+                                                    onChange={handleAvatarUpload}
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                />
                                             </div>
-                                            <input
-                                                type="url"
-                                                name="avatar_url"
-                                                value={profileData.avatar_url}
-                                                onChange={handleProfileChange}
-                                                className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-                                                placeholder="https://example.com/avatar.jpg"
-                                            />
+                                            <div className="flex-1">
+                                                <p className="text-sm text-foreground font-medium">Click avatar to upload</p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    JPG, PNG or WebP. Max 5MB.
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAvatarClick}
+                                                    className="mt-2 text-xs text-accent hover:underline font-medium"
+                                                >
+                                                    Change Picture
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
 

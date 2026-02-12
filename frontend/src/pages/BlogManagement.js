@@ -42,10 +42,12 @@ export default function BlogManagement() {
     const handleDelete = async (blogId) => {
         if (window.confirm('Are you sure you want to delete this blog?')) {
             try {
+                console.log('Attempting to delete blog:', blogId);
                 await blogAPI.delete(blogId);
                 setBlogs(blogs.filter(b => b.blog_id !== blogId));
                 toast.success('Blog deleted');
-            } catch {
+            } catch (error) {
+                console.error('Delete blog error:', error);
                 toast.error('Failed to delete');
             }
         }
@@ -146,7 +148,7 @@ export default function BlogManagement() {
                         ))}
                     </div>
                 ) : filteredBlogs.length > 0 ? (
-                    <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="border border-border rounded-lg">
                         {/* Table Header */}
                         <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 text-xs font-mono uppercase tracking-wider text-muted-foreground border-b border-border">
                             <div className="col-span-5">Title</div>

@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 
 const REACTION_TYPES = [
     { type: 'fire', emoji: '🔥', label: 'Fire' },
-    { type: 'rocket', emoji: '🚀', label: 'Rocket' },
     { type: 'bulb', emoji: '💡', label: 'Insightful' },
     { type: 'clap', emoji: '👏', label: 'Clap' },
     { type: 'heart', emoji: '❤️', label: 'Love' },

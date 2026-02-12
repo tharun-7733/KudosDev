@@ -9,11 +9,11 @@ import {
     AnalyticsCard,
     SkillsSection,
     ActivityTimeline,
-    ResumeSection
+    SocialsSection
 } from '../components/profile';
 import {
     LayoutGrid, List, Github, Eye, Star,
-    Code2
+    Code2, BookOpen, MessageSquare
 } from 'lucide-react';
 
 export default function Profile() {
@@ -173,8 +173,8 @@ export default function Profile() {
                     <ActivityTimeline isOwnProfile={isOwnProfile} />
                 </div>
 
-                {/* Resume & Links */}
-                <ResumeSection user={profileUser} isOwnProfile={isOwnProfile} />
+                {/* Socials & Links */}
+                <SocialsSection user={profileUser} isOwnProfile={isOwnProfile} />
 
                 {/* Projects Section */}
                 <div className="bg-card border border-border rounded-xl p-6">
@@ -254,6 +254,60 @@ export default function Profile() {
                         </div>
                     )}
                 </div>
+
+                {/* Blogs Section */}
+                {blogs.length > 0 && (
+                    <div className="bg-card border border-border rounded-xl p-6 mt-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="font-heading font-semibold text-lg text-foreground">
+                                {isOwnProfile ? 'My Blogs' : 'Recent Blogs'}
+                            </h2>
+                            <Link to="/blogs" className="text-sm text-accent hover:underline">
+                                View all blogs
+                            </Link>
+                        </div>
+
+                        <div className="space-y-4">
+                            {blogs.slice(0, 3).map(blog => (
+                                <Link
+                                    key={blog.blog_id}
+                                    to={`/blog/${blog.slug}`}
+                                    className="block p-4 rounded-lg border border-border hover:border-accent/50 hover:bg-muted/50 transition-all"
+                                >
+                                    <div className="flex justify-between items-start gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-accent px-1.5 py-0.5 rounded bg-accent/10">
+                                                    {blog.category}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {new Date(blog.published_at || blog.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </span>
+                                            </div>
+                                            <h3 className="font-medium text-foreground truncate group-hover:text-accent transition-colors">
+                                                {blog.title}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground truncate mt-1">
+                                                {blog.subtitle}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 text-sm text-muted-foreground whitespace-nowrap">
+                                            <span className="flex items-center gap-1">
+                                                <Eye className="w-4 h-4" />
+                                                {blog.view_count || 0}
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <MessageSquare className="w-4 h-4" />
+                                                {blog.comments_count || 0}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </main>
             <Footer />
         </div>

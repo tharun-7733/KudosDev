@@ -16,8 +16,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
@@ -429,6 +430,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Static files for uploads
+UPLOAD_DIR = ROOT_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 api_router = APIRouter(prefix="/api")
 
 
@@ -661,14 +667,18 @@ async def update_project(
 
 @api_router.delete("/projects/{project_id}")
 async def delete_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    logger.info(f"Attempting to delete project: {project_id} by user: {current_user['email']}")
     project = await db.projects.find_one({"project_id": project_id})
     if not project:
+        logger.warning(f"Project not found: {project_id}")
         raise HTTPException(status_code=404, detail="Project not found")
 
     if project["user_email"] != current_user["email"]:
+        logger.warning(f"Unauthorized deletion attempt for project {project_id} by {current_user['email']}")
         raise HTTPException(status_code=403, detail="Not authorized to delete this project")
 
-    await db.projects.delete_one({"project_id": project_id})
+    result = await db.projects.delete_one({"project_id": project_id})
+    logger.info(f"Project deletion result for {project_id}: {result.deleted_count} documents deleted")
     return {"message": "Project deleted successfully"}
 
 
@@ -792,15 +802,47 @@ async def update_blog(
 
 @api_router.delete("/blogs/{blog_id}")
 async def delete_blog(blog_id: str, current_user: dict = Depends(get_current_user)):
+    logger.info(f"Attempting to delete blog: {blog_id} by user: {current_user['email']}")
     blog = await db.blogs.find_one({"blog_id": blog_id})
     if not blog:
+        logger.warning(f"Blog not found: {blog_id}")
         raise HTTPException(status_code=404, detail="Blog not found")
     if blog["author_email"] != current_user["email"]:
+        logger.warning(f"Unauthorized deletion attempt for blog {blog_id} by {current_user['email']}")
         raise HTTPException(status_code=403, detail="Not authorized")
+    
     await db.blogs.delete_one({"blog_id": blog_id})
     await db.comments.delete_many({"blog_id": blog_id})
     await db.reactions.delete_many({"blog_id": blog_id})
+    logger.info(f"Blog {blog_id} and associated data deleted successfully")
     return {"message": "Blog deleted successfully"}
+
+
+@api_router.post("/blogs/upload-image")
+async def upload_blog_image(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload an image for a blog post."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    # Generate unique filename
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = UPLOAD_DIR / filename
+
+    try:
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        # In a real app, you'd use a full URL. For local dev:
+        file_url = f"/uploads/{filename}"
+        return {"url": file_url}
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload image")
 
 
 @api_router.post("/blogs/{blog_id}/publish", response_model=BlogResponse)

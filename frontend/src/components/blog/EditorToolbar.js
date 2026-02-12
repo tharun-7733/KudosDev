@@ -2,58 +2,64 @@ import React from 'react';
 import { Bold, Italic, Heading1, Heading2, Heading3, Code, Link, Image, List, ListOrdered, Quote, Minus } from 'lucide-react';
 
 const TOOLS = [
-    { icon: Bold, label: 'Bold', prefix: '**', suffix: '**', placeholder: 'bold text' },
-    { icon: Italic, label: 'Italic', prefix: '*', suffix: '*', placeholder: 'italic text' },
+    { type: 'bold', icon: Bold, label: 'Bold', prefix: '**', suffix: '**', placeholder: 'bold text' },
+    { type: 'italic', icon: Italic, label: 'Italic', prefix: '*', suffix: '*', placeholder: 'italic text' },
     { type: 'separator' },
-    { icon: Heading1, label: 'Heading 1', prefix: '# ', suffix: '', placeholder: 'Heading', block: true },
-    { icon: Heading2, label: 'Heading 2', prefix: '## ', suffix: '', placeholder: 'Heading', block: true },
-    { icon: Heading3, label: 'Heading 3', prefix: '### ', suffix: '', placeholder: 'Heading', block: true },
+    { type: 'h1', icon: Heading1, label: 'Heading 1', prefix: '# ', suffix: '', placeholder: 'Heading', block: true },
+    { type: 'h2', icon: Heading2, label: 'Heading 2', prefix: '## ', suffix: '', placeholder: 'Heading', block: true },
+    { type: 'h3', icon: Heading3, label: 'Heading 3', prefix: '### ', suffix: '', placeholder: 'Heading', block: true },
     { type: 'separator' },
-    { icon: Code, label: 'Code Block', prefix: '```\n', suffix: '\n```', placeholder: 'code here', block: true },
-    { icon: Quote, label: 'Blockquote', prefix: '> ', suffix: '', placeholder: 'quote', block: true },
-    { icon: Minus, label: 'Divider', prefix: '\n---\n', suffix: '', placeholder: '', block: true },
+    { type: 'code', icon: Code, label: 'Code Block', prefix: '```\n', suffix: '\n```', placeholder: 'code here', block: true },
+    { type: 'quote', icon: Quote, label: 'Blockquote', prefix: '> ', suffix: '', placeholder: 'quote', block: true },
+    { type: 'hr', icon: Minus, label: 'Divider', prefix: '\n---\n', suffix: '', placeholder: '', block: true },
     { type: 'separator' },
-    { icon: List, label: 'Bullet List', prefix: '- ', suffix: '', placeholder: 'list item', block: true },
-    { icon: ListOrdered, label: 'Numbered List', prefix: '1. ', suffix: '', placeholder: 'list item', block: true },
+    { type: 'ul', icon: List, label: 'Bullet List', prefix: '- ', suffix: '', placeholder: 'list item', block: true },
+    { type: 'ol', icon: ListOrdered, label: 'Numbered List', prefix: '1. ', suffix: '', placeholder: 'list item', block: true },
     { type: 'separator' },
-    { icon: Link, label: 'Link', prefix: '[', suffix: '](url)', placeholder: 'link text' },
-    { icon: Image, label: 'Image', prefix: '![', suffix: '](url)', placeholder: 'alt text' },
+    { type: 'link', icon: Link, label: 'Link', prefix: '[', suffix: '](url)', placeholder: 'link text' },
+    { type: 'image', icon: Image, label: 'Upload Image' },
 ];
 
-export default function EditorToolbar({ textareaRef }) {
-    const applyFormat = (tool) => {
+export default function EditorToolbar({ textareaRef, onImageUpload }) {
+
+    const insertText = (prefix, suffix, placeholder = '', isBlock = false) => {
         const textarea = textareaRef?.current;
         if (!textarea) return;
 
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const text = textarea.value;
-        const selected = text.slice(start, end) || tool.placeholder;
+        const selected = text.slice(start, end) || placeholder;
 
         let before = text.slice(0, start);
         let after = text.slice(end);
 
-        // For block-level elements, ensure they start on a new line
-        if (tool.block && before.length > 0 && !before.endsWith('\n')) {
+        if (isBlock && before.length > 0 && !before.endsWith('\n')) {
             before += '\n';
         }
 
-        const newText = before + tool.prefix + selected + tool.suffix + after;
+        const newText = before + prefix + selected + suffix + after;
 
-        // Trigger React's onChange via native input event
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
         nativeInputValueSetter.call(textarea, newText);
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-        // Set cursor position
-        const cursorPos = before.length + tool.prefix.length + selected.length;
+        const cursorPos = before.length + prefix.length + selected.length;
         setTimeout(() => {
             textarea.focus();
             textarea.setSelectionRange(
-                before.length + tool.prefix.length,
+                before.length + prefix.length,
                 cursorPos
             );
         }, 0);
+    };
+
+    const handleClick = (tool) => {
+        if (tool.type === 'image') {
+            if (onImageUpload) onImageUpload();
+        } else {
+            insertText(tool.prefix, tool.suffix, tool.placeholder, tool.block);
+        }
     };
 
     return (
@@ -65,7 +71,7 @@ export default function EditorToolbar({ textareaRef }) {
                     <button
                         key={i}
                         type="button"
-                        onClick={() => applyFormat(tool)}
+                        onClick={() => handleClick(tool)}
                         title={tool.label}
                         className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     >

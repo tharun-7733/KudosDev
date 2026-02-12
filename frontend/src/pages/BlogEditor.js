@@ -14,6 +14,7 @@ export default function BlogEditor() {
     const navigate = useNavigate();
     const { blogId } = useParams();
     const textareaRef = useRef(null);
+    const fileInputRef = useRef(null);
     const isEditing = Boolean(blogId);
 
     const [title, setTitle] = useState('');
@@ -152,6 +153,52 @@ export default function BlogEditor() {
         }
     };
 
+    const handleImageUploadTrigger = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const id = toast.loading('Uploading image...');
+        try {
+            const res = await blogAPI.uploadImage(formData);
+            const imageUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000'}${res.data.url}`;
+
+            // Insert into markdown
+            const textarea = textareaRef.current;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+            const markdown = `![${file.name}](${imageUrl})`;
+
+            const newContent = text.slice(0, start) + markdown + text.slice(end);
+            setContent(newContent);
+
+            toast.success('Image uploaded!', { id });
+
+            // Set focus and cursor after insertion
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + markdown.length, start + markdown.length);
+            }, 0);
+        } catch {
+            toast.error('Failed to upload image', { id });
+        } finally {
+            // Reset input
+            e.target.value = '';
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background">
             <Header />
@@ -262,7 +309,17 @@ export default function BlogEditor() {
 
                         {/* Toolbar */}
                         <div className="border border-border rounded-lg overflow-hidden">
-                            <EditorToolbar textareaRef={textareaRef} />
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                accept="image/*"
+                                className="hidden"
+                            />
+                            <EditorToolbar
+                                textareaRef={textareaRef}
+                                onImageUpload={handleImageUploadTrigger}
+                            />
                             <TextareaAutosize
                                 ref={textareaRef}
                                 value={content}

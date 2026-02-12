@@ -34,6 +34,7 @@ export default function BlogExplore() {
     const filteredBlogs = blogs.filter(blog =>
         blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         blog.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        blog.content?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         blog.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
