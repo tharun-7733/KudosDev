@@ -49,4 +49,22 @@ export const projectAPI = {
     delete: (id) => api.delete(`/api/projects/${id}`),
 };
 
+// Blog APIs
+export const blogAPI = {
+    create: (data) => api.post('/api/blogs', data),
+    getAll: (params) => api.get('/api/blogs', { params }),
+    getMy: () => api.get('/api/blogs/my'),
+    getBySlug: (slug) => api.get(`/api/blogs/${slug}`),
+    update: (id, data) => api.put(`/api/blogs/${id}`, data),
+    delete: (id) => api.delete(`/api/blogs/${id}`),
+    publish: (id) => api.post(`/api/blogs/${id}/publish`),
+    unpublish: (id) => api.post(`/api/blogs/${id}/unpublish`),
+    getComments: (id) => api.get(`/api/blogs/${id}/comments`),
+    addComment: (id, data) => api.post(`/api/blogs/${id}/comments`, data),
+    getReactions: (id) => api.get(`/api/blogs/${id}/reactions`),
+    react: (id, data) => api.post(`/api/blogs/${id}/reactions`, data),
+    toggleBookmark: (id) => api.post(`/api/blogs/${id}/bookmark`),
+    getBookmarks: () => api.get('/api/bookmarks'),
+};
+
 export default api;

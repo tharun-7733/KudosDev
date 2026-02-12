@@ -15,6 +15,10 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import BlogEditor from './pages/BlogEditor';
+import BlogPost from './pages/BlogPost';
+import BlogExplore from './pages/BlogExplore';
+import BlogManagement from './pages/BlogManagement';
 
 function App() {
   return (
@@ -31,6 +35,32 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/profile/:username" element={<Profile />} />
+              <Route path="/blogs" element={<BlogExplore />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route
+                path="/blog/new"
+                element={
+                  <ProtectedRoute>
+                    <BlogEditor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/blog/edit/:blogId"
+                element={
+                  <ProtectedRoute>
+                    <BlogEditor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/blogs"
+                element={
+                  <ProtectedRoute>
+                    <BlogManagement />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={

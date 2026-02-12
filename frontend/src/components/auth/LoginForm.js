@@ -22,6 +22,7 @@ export const LoginForm = () => {
             toast.success('Login successful!');
             navigate('/dashboard');
         } catch (error) {
+            console.error('Login error details:', error);
             toast.error(error.response?.data?.detail || 'Login failed');
         } finally {
             setLoading(false);

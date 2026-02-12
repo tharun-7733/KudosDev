@@ -8,6 +8,7 @@ import logging
 if not hasattr(bcrypt, "__about__"):
     bcrypt.__about__ = type("About", (object,), {"__version__": bcrypt.__version__})
 
+import re
 import uuid
 import os
 from pathlib import Path
@@ -224,9 +225,106 @@ class Token(BaseModel):
     user: UserResponse
 
 
+# --- Blog Models ---
+
+class BlogCreate(BaseModel):
+    title: str
+    subtitle: Optional[str] = None
+    content_markdown: str = ""
+    cover_image_url: Optional[str] = None
+    tags: List[str] = []
+    category: str = "devlog"
+    tech_stack: List[str] = []
+    linked_project_id: Optional[str] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+    status: str = "draft"  # draft | published
+
+
+class BlogUpdate(BaseModel):
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    content_markdown: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    tags: Optional[List[str]] = None
+    category: Optional[str] = None
+    tech_stack: Optional[List[str]] = None
+    linked_project_id: Optional[str] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+
+
+class BlogResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    blog_id: str
+    slug: str
+    title: str
+    subtitle: Optional[str] = None
+    content_markdown: str
+    cover_image_url: Optional[str] = None
+    author_email: str
+    author_username: str
+    author_full_name: str
+    tags: List[str] = []
+    category: str
+    tech_stack: List[str] = []
+    linked_project_id: Optional[str] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+    status: str
+    word_count: int = 0
+    reading_time_minutes: int = 1
+    view_count: int = 0
+    comment_count: int = 0
+    reaction_count: int = 0
+    published_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CommentCreate(BaseModel):
+    content: str
+    parent_comment_id: Optional[str] = None
+
+
+class CommentResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    comment_id: str
+    blog_id: str
+    parent_comment_id: Optional[str] = None
+    author_email: str
+    author_username: str
+    author_full_name: str
+    content: str
+    upvotes: int = 0
+    created_at: datetime
+
+
+class ReactionCreate(BaseModel):
+    type: str  # fire | rocket | bulb | clap | heart
+
+
 # ---------------------------------------------------------------------------
 # Response helpers
 # ---------------------------------------------------------------------------
+
+
+def generate_slug(title: str) -> str:
+    """Generate a URL-friendly slug from a title with a short UUID suffix."""
+    base = re.sub(r"[^\w\s-]", "", title.lower().strip())
+    base = re.sub(r"[\s_]+", "-", base)
+    base = re.sub(r"-+", "-", base).strip("-")
+    suffix = str(uuid.uuid4())[:8]
+    return f"{base}-{suffix}" if base else suffix
+
+
+def calculate_reading_time(text: str) -> int:
+    """Estimate reading time in minutes (238 wpm average)."""
+    words = len(text.split())
+    return max(1, round(words / 238))
+
 
 
 def _user_response(user: dict) -> UserResponse:
@@ -374,20 +472,27 @@ async def register(user_data: UserRegister):
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user_data: UserLogin):
-    logger.info(f"Login attempt for: {user_data.email}")
-    user = await db.users.find_one({"email": user_data.email})
-    
-    if not user:
-        logger.warning(f"User not found in DB: {user_data.email}")
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
-    
-    if not verify_password(user_data.password, user["password"]):
-        logger.warning(f"Invalid password for: {user_data.email}")
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    try:
+        logger.info(f"Login attempt for: {user_data.email}")
+        user = await db.users.find_one({"email": user_data.email})
+        
+        if not user:
+            logger.warning(f"User not found in DB: {user_data.email}")
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
+        
+        # Verify password with detailed debug logging if it fails
+        if not verify_password(user_data.password, user["password"]):
+            logger.warning(f"Invalid password for: {user_data.email}. Received: '{user_data.password}'")
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
 
-    logger.info(f"Login successful for: {user_data.email}")
-    access_token = create_access_token(data={"sub": user_data.email})
-    return Token(access_token=access_token, token_type="bearer", user=_user_response(user))
+        logger.info(f"Login successful for: {user_data.email}")
+        access_token = create_access_token(data={"sub": user_data.email})
+        return Token(access_token=access_token, token_type="bearer", user=_user_response(user))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Internal error during login: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @api_router.get("/auth/me", response_model=UserResponse)
@@ -565,6 +670,288 @@ async def delete_project(project_id: str, current_user: dict = Depends(get_curre
 
     await db.projects.delete_one({"project_id": project_id})
     return {"message": "Project deleted successfully"}
+
+
+# ---------------------------------------------------------------------------
+# Blog endpoints
+# ---------------------------------------------------------------------------
+
+
+def _blog_response(blog: dict) -> BlogResponse:
+    """Build a BlogResponse from a raw MongoDB document."""
+    b = blog.copy()
+    if "_id" in b:
+        del b["_id"]
+    b["created_at"] = parse_datetime(b.get("created_at", datetime.now(timezone.utc).isoformat()))
+    b["updated_at"] = parse_datetime(b.get("updated_at", datetime.now(timezone.utc).isoformat()))
+    if b.get("published_at"):
+        b["published_at"] = parse_datetime(b["published_at"])
+    b["tags"] = b.get("tags", [])
+    b["tech_stack"] = b.get("tech_stack", [])
+    b["content_markdown"] = b.get("content_markdown", "")
+    b["category"] = b.get("category", "devlog")
+    b["status"] = b.get("status", "draft")
+    b["word_count"] = b.get("word_count", 0)
+    b["reading_time_minutes"] = b.get("reading_time_minutes", 1)
+    b["view_count"] = b.get("view_count", 0)
+    b["comment_count"] = b.get("comment_count", 0)
+    b["reaction_count"] = b.get("reaction_count", 0)
+    return BlogResponse(**b)
+
+
+@api_router.post("/blogs", response_model=BlogResponse)
+async def create_blog(blog_data: BlogCreate, current_user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    word_count = len(blog_data.content_markdown.split())
+    blog_dict = blog_data.model_dump()
+    blog_dict["blog_id"] = str(uuid.uuid4())
+    blog_dict["slug"] = generate_slug(blog_data.title)
+    blog_dict["author_email"] = current_user["email"]
+    blog_dict["author_username"] = current_user["username"]
+    blog_dict["author_full_name"] = current_user["full_name"]
+    blog_dict["word_count"] = word_count
+    blog_dict["reading_time_minutes"] = calculate_reading_time(blog_data.content_markdown)
+    blog_dict["view_count"] = 0
+    blog_dict["comment_count"] = 0
+    blog_dict["reaction_count"] = 0
+    blog_dict["created_at"] = now
+    blog_dict["updated_at"] = now
+    if blog_data.status == "published":
+        blog_dict["published_at"] = now
+    else:
+        blog_dict["published_at"] = None
+    await db.blogs.insert_one(blog_dict)
+    return _blog_response(blog_dict)
+
+
+@api_router.get("/blogs", response_model=List[BlogResponse])
+async def get_all_blogs(
+    tag: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = 20,
+    skip: int = 0,
+):
+    query = {"status": "published"}
+    if tag:
+        query["tags"] = tag
+    if category:
+        query["category"] = category
+    blogs = (
+        await db.blogs.find(query, {"_id": 0})
+        .sort("published_at", -1)
+        .skip(skip)
+        .limit(limit)
+        .to_list(limit)
+    )
+    return [_blog_response(b) for b in blogs]
+
+
+@api_router.get("/blogs/my", response_model=List[BlogResponse])
+async def get_my_blogs(current_user: dict = Depends(get_current_user)):
+    blogs = (
+        await db.blogs.find({"author_email": current_user["email"]}, {"_id": 0})
+        .sort("updated_at", -1)
+        .to_list(100)
+    )
+    return [_blog_response(b) for b in blogs]
+
+
+@api_router.get("/blogs/{slug}", response_model=BlogResponse)
+async def get_blog_by_slug(slug: str):
+    blog = await db.blogs.find_one({"slug": slug}, {"_id": 0})
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    # Increment view count
+    await db.blogs.update_one({"slug": slug}, {"$inc": {"view_count": 1}})
+    blog["view_count"] = blog.get("view_count", 0) + 1
+    return _blog_response(blog)
+
+
+@api_router.put("/blogs/{blog_id}", response_model=BlogResponse)
+async def update_blog(
+    blog_id: str,
+    blog_update: BlogUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    blog = await db.blogs.find_one({"blog_id": blog_id})
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if blog["author_email"] != current_user["email"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    update_data = {k: v for k, v in blog_update.model_dump().items() if v is not None}
+    if "content_markdown" in update_data:
+        update_data["word_count"] = len(update_data["content_markdown"].split())
+        update_data["reading_time_minutes"] = calculate_reading_time(update_data["content_markdown"])
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.blogs.update_one({"blog_id": blog_id}, {"$set": update_data})
+    updated = await db.blogs.find_one({"blog_id": blog_id}, {"_id": 0})
+    return _blog_response(updated)
+
+
+@api_router.delete("/blogs/{blog_id}")
+async def delete_blog(blog_id: str, current_user: dict = Depends(get_current_user)):
+    blog = await db.blogs.find_one({"blog_id": blog_id})
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if blog["author_email"] != current_user["email"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    await db.blogs.delete_one({"blog_id": blog_id})
+    await db.comments.delete_many({"blog_id": blog_id})
+    await db.reactions.delete_many({"blog_id": blog_id})
+    return {"message": "Blog deleted successfully"}
+
+
+@api_router.post("/blogs/{blog_id}/publish", response_model=BlogResponse)
+async def publish_blog(blog_id: str, current_user: dict = Depends(get_current_user)):
+    blog = await db.blogs.find_one({"blog_id": blog_id})
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if blog["author_email"] != current_user["email"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.blogs.update_one(
+        {"blog_id": blog_id},
+        {"$set": {"status": "published", "published_at": now, "updated_at": now}},
+    )
+    updated = await db.blogs.find_one({"blog_id": blog_id}, {"_id": 0})
+    return _blog_response(updated)
+
+
+@api_router.post("/blogs/{blog_id}/unpublish", response_model=BlogResponse)
+async def unpublish_blog(blog_id: str, current_user: dict = Depends(get_current_user)):
+    blog = await db.blogs.find_one({"blog_id": blog_id})
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if blog["author_email"] != current_user["email"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.blogs.update_one(
+        {"blog_id": blog_id},
+        {"$set": {"status": "draft", "published_at": None, "updated_at": now}},
+    )
+    updated = await db.blogs.find_one({"blog_id": blog_id}, {"_id": 0})
+    return _blog_response(updated)
+
+
+# --- Comments ---
+
+@api_router.post("/blogs/{blog_id}/comments", response_model=CommentResponse)
+async def add_comment(
+    blog_id: str,
+    comment_data: CommentCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    blog = await db.blogs.find_one({"blog_id": blog_id})
+    if not blog:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    now = datetime.now(timezone.utc).isoformat()
+    comment = {
+        "comment_id": str(uuid.uuid4()),
+        "blog_id": blog_id,
+        "parent_comment_id": comment_data.parent_comment_id,
+        "author_email": current_user["email"],
+        "author_username": current_user["username"],
+        "author_full_name": current_user["full_name"],
+        "content": comment_data.content,
+        "upvotes": 0,
+        "created_at": now,
+    }
+    await db.comments.insert_one(comment)
+    await db.blogs.update_one({"blog_id": blog_id}, {"$inc": {"comment_count": 1}})
+    comment.pop("_id", None)
+    comment["created_at"] = parse_datetime(comment["created_at"])
+    return CommentResponse(**comment)
+
+
+@api_router.get("/blogs/{blog_id}/comments", response_model=List[CommentResponse])
+async def get_comments(blog_id: str):
+    comments = (
+        await db.comments.find({"blog_id": blog_id}, {"_id": 0})
+        .sort("created_at", 1)
+        .to_list(200)
+    )
+    result = []
+    for c in comments:
+        c["created_at"] = parse_datetime(c["created_at"])
+        result.append(CommentResponse(**c))
+    return result
+
+
+# --- Reactions ---
+
+@api_router.post("/blogs/{blog_id}/reactions")
+async def toggle_reaction(
+    blog_id: str,
+    reaction_data: ReactionCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    valid_types = {"fire", "rocket", "bulb", "clap", "heart"}
+    if reaction_data.type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid type. Use: {valid_types}")
+
+    existing = await db.reactions.find_one({
+        "blog_id": blog_id,
+        "user_email": current_user["email"],
+        "type": reaction_data.type,
+    })
+    if existing:
+        await db.reactions.delete_one({"_id": existing["_id"]})
+        await db.blogs.update_one({"blog_id": blog_id}, {"$inc": {"reaction_count": -1}})
+        return {"action": "removed", "type": reaction_data.type}
+    else:
+        await db.reactions.insert_one({
+            "blog_id": blog_id,
+            "user_email": current_user["email"],
+            "type": reaction_data.type,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        await db.blogs.update_one({"blog_id": blog_id}, {"$inc": {"reaction_count": 1}})
+        return {"action": "added", "type": reaction_data.type}
+
+
+@api_router.get("/blogs/{blog_id}/reactions")
+async def get_reactions(blog_id: str):
+    pipeline = [
+        {"$match": {"blog_id": blog_id}},
+        {"$group": {"_id": "$type", "count": {"$sum": 1}}},
+    ]
+    result = await db.reactions.aggregate(pipeline).to_list(10)
+    return {r["_id"]: r["count"] for r in result}
+
+
+# --- Bookmarks ---
+
+@api_router.post("/blogs/{blog_id}/bookmark")
+async def toggle_bookmark(
+    blog_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    existing = await db.bookmarks.find_one({
+        "user_email": current_user["email"],
+        "blog_id": blog_id,
+    })
+    if existing:
+        await db.bookmarks.delete_one({"_id": existing["_id"]})
+        return {"action": "removed"}
+    else:
+        await db.bookmarks.insert_one({
+            "user_email": current_user["email"],
+            "blog_id": blog_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"action": "added"}
+
+
+@api_router.get("/bookmarks", response_model=List[BlogResponse])
+async def get_bookmarks(current_user: dict = Depends(get_current_user)):
+    bookmarks = await db.bookmarks.find(
+        {"user_email": current_user["email"]}, {"_id": 0}
+    ).to_list(100)
+    blog_ids = [b["blog_id"] for b in bookmarks]
+    blogs = await db.blogs.find({"blog_id": {"$in": blog_ids}}, {"_id": 0}).to_list(100)
+    return [_blog_response(b) for b in blogs]
 
 
 # ---------------------------------------------------------------------------

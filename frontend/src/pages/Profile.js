@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../context/AuthContext';
-import { projectAPI } from '../lib/api';
+import { projectAPI, blogAPI } from '../lib/api';
 import {
     ProfileHeader,
     AnalyticsCard,
@@ -22,6 +22,7 @@ export default function Profile() {
 
     const [profileUser, setProfileUser] = useState(null);
     const [projects, setProjects] = useState([]);
+    const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('grid');
     const [activeTab, setActiveTab] = useState('all');
@@ -55,6 +56,22 @@ export default function Profile() {
                 p => p.user_username === username
             );
             setProjects(userProjects);
+
+            // Fetch blog data
+            try {
+                if (isOwnProfile) {
+                    const blogRes = await blogAPI.getMy();
+                    setBlogs(blogRes.data || []);
+                } else {
+                    const blogRes = await blogAPI.getAll();
+                    const userBlogs = (blogRes.data || []).filter(
+                        b => b.author_username === username
+                    );
+                    setBlogs(userBlogs);
+                }
+            } catch (error) {
+                // Blog fetch is non-critical
+            }
         } catch (error) {
             console.error('Failed to fetch profile:', error);
         } finally {
@@ -74,6 +91,9 @@ export default function Profile() {
     // Mock stats for demo
     const stats = {
         projects: projects.length,
+        blogPosts: blogs.length,
+        blogViews: blogs.reduce((sum, b) => sum + (b.view_count || 0), 0),
+        blogReactions: blogs.reduce((sum, b) => sum + (b.reaction_count || 0), 0),
         views: 1234,
         stars: 56,
         followers: 23,

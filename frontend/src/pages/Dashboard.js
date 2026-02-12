@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { projectAPI } from '../lib/api';
+import { projectAPI, blogAPI } from '../lib/api';
 import { toast } from 'sonner';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import {
     Plus, ExternalLink, LayoutGrid, List, Search,
-    MoreVertical, Edit2, Trash2, Archive, Pin, Copy, Eye, Clock
+    MoreVertical, Edit2, Trash2, Archive, Pin, Copy, Eye, Clock,
+    PenSquare, FileText, CheckCircle, ArrowRight
 } from 'lucide-react';
 
 // Filter/Sort options
@@ -29,6 +30,7 @@ export default function Dashboard() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [projects, setProjects] = useState([]);
+    const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // View & filter state
@@ -40,6 +42,7 @@ export default function Dashboard() {
 
     useEffect(() => {
         fetchProjects();
+        fetchBlogs();
     }, []);
 
     // Close menu when clicking outside
@@ -57,6 +60,15 @@ export default function Dashboard() {
             toast.error('Failed to fetch projects');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchBlogs = async () => {
+        try {
+            const response = await blogAPI.getMy();
+            setBlogs(response.data || []);
+        } catch (error) {
+            // Blog fetch is non-critical
         }
     };
 
@@ -164,6 +176,85 @@ export default function Dashboard() {
                             <p className="text-sm text-muted-foreground">@{user?.username}</p>
                         </div>
                     </div>
+                </div>
+
+                {/* Blog Writing Section */}
+                <div className="bg-card border border-border rounded-xl p-6 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="font-heading font-semibold text-lg text-foreground flex items-center gap-2">
+                                <PenSquare className="w-5 h-5 text-accent" />
+                                My Blog Posts
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                {blogs.length} post{blogs.length !== 1 ? 's' : ''}
+                                {' · '}
+                                {blogs.filter(b => b.status === 'draft').length} draft{blogs.filter(b => b.status === 'draft').length !== 1 ? 's' : ''}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => navigate('/dashboard/blogs')}
+                                className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+                            >
+                                Manage All <ArrowRight className="w-3 h-3" />
+                            </button>
+                            <button
+                                onClick={() => navigate('/blog/new')}
+                                className="bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-1.5 rounded-md text-sm font-medium transition-all inline-flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Write
+                            </button>
+                        </div>
+                    </div>
+
+                    {blogs.length > 0 ? (
+                        <div className="space-y-2">
+                            {blogs.slice(0, 3).map(blog => (
+                                <div
+                                    key={blog.blog_id}
+                                    onClick={() => blog.status === 'published'
+                                        ? navigate(`/blog/${blog.slug}`)
+                                        : navigate(`/blog/edit/${blog.blog_id}`)}
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors group"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-medium text-foreground text-sm truncate group-hover:text-accent transition-colors">
+                                            {blog.title}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            {blog.word_count} words · {blog.reading_time_minutes} min read
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3 ml-3">
+                                        {blog.status === 'published' ? (
+                                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-600">
+                                                <CheckCircle className="w-3 h-3" /> Published
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600">
+                                                <FileText className="w-3 h-3" /> Draft
+                                            </span>
+                                        )}
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <Eye className="w-3 h-3" /> {blog.view_count || 0}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+                            <span className="text-3xl mb-2 block">✍️</span>
+                            <p className="text-sm text-muted-foreground mb-3">Share your developer journey</p>
+                            <button
+                                onClick={() => navigate('/blog/new')}
+                                className="text-sm text-accent hover:underline font-medium"
+                            >
+                                Write your first blog post →
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Projects Section */}

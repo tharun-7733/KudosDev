@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { BookOpen, Moon, Sun, Plus } from 'lucide-react';
+import { BookOpen, Moon, Sun, Plus, PenSquare } from 'lucide-react';
 import { ProfileDropdown } from '../profile/ProfileDropdown';
 
 export const Header = () => {
@@ -68,6 +68,14 @@ export const Header = () => {
                                     Explore
                                 </Link>
 
+                                {/* Blog */}
+                                <Link
+                                    to="/blogs"
+                                    className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
+                                >
+                                    Blog
+                                </Link>
+
                                 {/* Careers */}
                                 <Link
                                     to="/careers"
@@ -100,6 +108,14 @@ export const Header = () => {
                                     className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
                                 >
                                     Explore
+                                </Link>
+
+                                {/* Blog - visible to everyone */}
+                                <Link
+                                    to="/blogs"
+                                    className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
+                                >
+                                    Blog
                                 </Link>
 
                                 {/* Careers - visible to everyone */}
