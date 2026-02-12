@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { blogAPI } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
@@ -116,8 +117,8 @@ function CommentItem({ comment, formatDate }) {
                 {comment.author_full_name?.charAt(0) || '?'}
             </div>
             <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-foreground">
+                <Link to={`/profile/${comment.author_username}`} className="flex items-center gap-2 mb-1 group">
+                    <span className="text-sm font-medium text-foreground group-hover:text-accent transition-colors">
                         {comment.author_full_name}
                     </span>
                     <span className="text-xs text-muted-foreground">
@@ -126,7 +127,7 @@ function CommentItem({ comment, formatDate }) {
                     <span className="text-xs text-muted-foreground">
                         · {formatDate(comment.created_at)}
                     </span>
-                </div>
+                </Link>
                 <p className="text-sm text-foreground/90 leading-relaxed">
                     {comment.content}
                 </p>

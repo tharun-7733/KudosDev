@@ -125,6 +125,21 @@ export default function Profile() {
         );
     }
 
+    // Mock lists for followers/following
+    const followerList = [
+        { username: 'janedoe', full_name: 'Jane Doe' },
+        { username: 'bobsmith', full_name: 'Bob Smith' },
+        { username: 'alice', full_name: 'Alice Johnson' },
+        { username: 'charlie', full_name: 'Charlie Brown' },
+        { username: 'dev_guru', full_name: 'Dev Guru' },
+    ];
+
+    const followingList = [
+        { username: 'adminuser', full_name: 'Admin User' },
+        { username: 'sarah_dev', full_name: 'Sarah Dev' },
+        { username: 'mike_codes', full_name: 'Mike Codes' },
+    ];
+
     return (
         <div className="min-h-screen bg-background">
             <Header />
@@ -139,7 +154,12 @@ export default function Profile() {
                 />
 
                 {/* Analytics */}
-                <AnalyticsCard stats={stats} isOwnProfile={isOwnProfile} />
+                <AnalyticsCard
+                    stats={stats}
+                    isOwnProfile={isOwnProfile}
+                    followerList={followerList}
+                    followingList={followingList}
+                />
 
                 {/* Two Column Layout for Skills + Activity */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
