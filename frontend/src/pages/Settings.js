@@ -14,7 +14,10 @@ import {
     UserCircle,
     Palette,
     Upload,
-    Camera
+    Camera,
+    Github,
+    Linkedin,
+    Globe
 } from 'lucide-react';
 import { blogAPI } from '../lib/api'; // Reuse blogAPI.uploadImage for avatar for now, or use a more general one if exists
 
@@ -32,7 +35,10 @@ export default function Settings() {
         full_name: user?.full_name || '',
         bio: user?.bio || '',
         avatar_url: user?.avatar_url || '',
-        skills: user?.skills?.join(', ') || ''
+        skills: user?.skills?.join(', ') || '',
+        github_url: user?.github_url || '',
+        linkedin_url: user?.linkedin_url || '',
+        website_url: user?.website_url || ''
     });
 
     // Account State
@@ -256,6 +262,66 @@ export default function Settings() {
                                             className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                                             placeholder="React, Python, Node.js"
                                         />
+                                    </div>
+
+                                    {/* Social Links Section */}
+                                    <div className="pt-4 border-t border-border">
+                                        <h3 className="text-sm font-medium text-foreground mb-4">Social Links</h3>
+                                        <div className="space-y-4">
+                                            {/* GitHub URL */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-foreground mb-2">
+                                                    GitHub URL
+                                                </label>
+                                                <div className="relative">
+                                                    <Github className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                                                    <input
+                                                        type="url"
+                                                        name="github_url"
+                                                        value={profileData.github_url}
+                                                        onChange={handleProfileChange}
+                                                        className="w-full h-10 rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                                                        placeholder="https://github.com/username"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* LinkedIn URL */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-foreground mb-2">
+                                                    LinkedIn URL
+                                                </label>
+                                                <div className="relative">
+                                                    <Linkedin className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                                                    <input
+                                                        type="url"
+                                                        name="linkedin_url"
+                                                        value={profileData.linkedin_url}
+                                                        onChange={handleProfileChange}
+                                                        className="w-full h-10 rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                                                        placeholder="https://linkedin.com/in/username"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Portfolio / Website URL */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-foreground mb-2">
+                                                    Portfolio / Website URL
+                                                </label>
+                                                <div className="relative">
+                                                    <Globe className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                                                    <input
+                                                        type="url"
+                                                        name="website_url"
+                                                        value={profileData.website_url}
+                                                        onChange={handleProfileChange}
+                                                        className="w-full h-10 rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                                                        placeholder="https://yourportfolio.dev"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

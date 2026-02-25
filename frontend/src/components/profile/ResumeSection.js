@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Github, Linkedin, Globe, ExternalLink
 } from 'lucide-react';
@@ -7,6 +8,8 @@ import {
  * SocialsSection - Displays social media links (formerly ResumeSection)
  */
 export const SocialsSection = ({ user, isOwnProfile }) => {
+    const navigate = useNavigate();
+
     const externalLinks = [
         { key: 'github_url', label: 'GitHub', icon: Github, color: 'hover:text-gray-900 dark:hover:text-white' },
         { key: 'linkedin_url', label: 'LinkedIn', icon: Linkedin, color: 'hover:text-blue-600' },
@@ -47,6 +50,7 @@ export const SocialsSection = ({ user, isOwnProfile }) => {
                         ) : isOwnProfile ? (
                             <button
                                 key={key}
+                                onClick={() => navigate('/settings')}
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-border text-muted-foreground hover:border-accent hover:text-foreground transition-colors"
                             >
                                 <Icon className="w-4 h-4" />

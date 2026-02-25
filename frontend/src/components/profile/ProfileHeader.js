@@ -7,7 +7,7 @@ import { Edit2, Share2, MapPin, Calendar, ExternalLink, Code2 } from 'lucide-rea
  * ProfileHeader - Displays user avatar, name, bio, and action buttons
  * Renders differently for own profile vs public profile
  */
-export const ProfileHeader = ({ user, isOwnProfile, onFollow, isFollowing }) => {
+export const ProfileHeader = ({ user, isOwnProfile, onFollow, isFollowing, onShare }) => {
     const navigate = useNavigate();
 
     const getInitials = (name) => {
@@ -26,12 +26,16 @@ export const ProfileHeader = ({ user, isOwnProfile, onFollow, isFollowing }) => 
     };
 
     const handleShare = () => {
-        const url = window.location.href;
-        navigator.clipboard.writeText(url).then(() => {
-            toast.success('Profile link copied to clipboard!');
-        }).catch(() => {
-            toast.error('Failed to copy link');
-        });
+        if (onShare) {
+            onShare();
+        } else {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                toast.success('Profile link copied to clipboard!');
+            }).catch(() => {
+                toast.error('Failed to copy link');
+            });
+        }
     };
 
     return (

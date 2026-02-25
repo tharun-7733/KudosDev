@@ -6,16 +6,8 @@ import {
 /**
  * ActivityTimeline - Chronological feed of user activities
  */
-export const ActivityTimeline = ({ activities, isOwnProfile }) => {
-    // Mock activities if none provided
-    const defaultActivities = [
-        { type: 'published', title: 'Published a new project', project: 'Portfolio Website', time: '2 hours ago' },
-        { type: 'starred', title: 'Received 5 new stars', project: 'React Dashboard', time: '1 day ago' },
-        { type: 'updated', title: 'Updated project documentation', project: 'API Toolkit', time: '3 days ago' },
-        { type: 'follower', title: 'Gained a new follower', time: '5 days ago' },
-    ];
-
-    const activityList = activities?.length > 0 ? activities : (isOwnProfile ? defaultActivities : []);
+export const ActivityTimeline = ({ activities = [], isOwnProfile }) => {
+    const activityList = activities;
 
     const getActivityIcon = (type) => {
         switch (type) {

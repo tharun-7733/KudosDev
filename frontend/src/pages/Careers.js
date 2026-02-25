@@ -1,49 +1,87 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../context/AuthContext';
 import {
     Briefcase, Users, Rocket, Search, MapPin, Clock,
-    DollarSign, Building2, ExternalLink, Code2, Github,
-    CheckCircle, ArrowRight, Sparkles
+    Building2, ExternalLink, Code2, Github,
+    ArrowRight, Loader2, RefreshCw, Globe
 } from 'lucide-react';
 
-// Sample job data (will be from API later)
-const SAMPLE_JOBS = [
+// India-focused job platforms for "Browse More" section
+const JOB_PLATFORMS = [
     {
-        id: 1,
-        title: 'Frontend Developer Intern',
-        company: 'TechStartup Inc.',
-        location: 'Remote',
-        type: 'Internship',
-        salary: '$20-30/hr',
-        tech: ['React', 'TypeScript', 'Tailwind'],
-        posted: '2 days ago',
-        description: 'Looking for a passionate frontend developer to join our team...'
+        name: 'LinkedIn India',
+        icon: '🔗',
+        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+        searchUrl: (q) => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(q || 'developer')}&location=India&f_TPR=r604800`,
     },
     {
-        id: 2,
-        title: 'Freelance Backend Developer',
-        company: 'IndieHacker',
-        location: 'Remote',
-        type: 'Freelance',
-        tech: ['Node.js', 'PostgreSQL', 'AWS'],
-        posted: '1 day ago',
-        description: 'Need help building REST APIs for my SaaS product...'
+        name: 'Naukri',
+        icon: '💼',
+        color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+        searchUrl: (q) => `https://www.naukri.com/${encodeURIComponent((q || 'software-developer').replace(/\s+/g, '-'))}-jobs`,
     },
     {
-        id: 3,
-        title: 'Junior Full Stack Developer',
-        company: 'GrowthCo',
-        location: 'San Francisco, CA',
-        type: 'Entry-level',
-        salary: '$80-100k',
-        tech: ['React', 'Python', 'Django'],
-        posted: '3 days ago',
-        description: 'Join our growing engineering team and work on exciting projects...'
-    }
+        name: 'Indeed India',
+        icon: '🏢',
+        color: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
+        searchUrl: (q) => `https://in.indeed.com/jobs?q=${encodeURIComponent(q || 'software developer')}&fromage=7`,
+    },
+    {
+        name: 'Internshala',
+        icon: '🎓',
+        color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+        searchUrl: (q) => `https://internshala.com/jobs/keywords-${encodeURIComponent(q || 'developer')}`,
+    },
+    {
+        name: 'Instahyre',
+        icon: '🚀',
+        color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+        searchUrl: (q) => `https://www.instahyre.com/search-jobs/?searchQuery=${encodeURIComponent(q || 'developer')}`,
+    },
 ];
+
+// Strictly filter for India-located jobs only
+const isIndiaJob = (location) => {
+    if (!location) return false;
+    const loc = location.toLowerCase();
+    return (
+        loc.includes('india') ||
+        loc.includes('bangalore') ||
+        loc.includes('bengaluru') ||
+        loc.includes('mumbai') ||
+        loc.includes('hyderabad') ||
+        loc.includes('chennai') ||
+        loc.includes('pune') ||
+        loc.includes('delhi') ||
+        loc.includes('noida') ||
+        loc.includes('gurgaon') ||
+        loc.includes('gurugram') ||
+        loc.includes('kolkata') ||
+        loc.includes('ahmedabad') ||
+        loc.includes('jaipur') ||
+        loc.includes('kochi') ||
+        loc.includes('thiruvananthapuram') ||
+        loc.includes('coimbatore') ||
+        loc.includes('lucknow') ||
+        loc.includes('chandigarh') ||
+        loc.includes('indore')
+    );
+};
+
+// Format location to always show "India" context
+const formatLocationForIndia = (location) => {
+    if (!location) return 'India';
+    const loc = location.toLowerCase();
+    // If location just says "India", return as-is
+    if (loc.trim() === 'india') return 'India';
+    // If it contains India and a city, return as-is
+    if (loc.includes('india')) return location;
+    // If it's a city name, append India
+    return `${location}, India`;
+};
 
 // Sample contributor requests
 const CONTRIBUTOR_REQUESTS = [
@@ -65,11 +103,77 @@ const CONTRIBUTOR_REQUESTS = [
     }
 ];
 
+/**
+ * Format a date string into relative time (e.g. "2 days ago")
+ */
+const formatTimeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+    const months = Math.floor(days / 30);
+    return `${months} month${months > 1 ? 's' : ''} ago`;
+};
+
 export default function Careers() {
     const { isAuthenticated } = useAuth();
     const [activeSection, setActiveSection] = useState('jobs');
     const [searchQuery, setSearchQuery] = useState('');
-    const [openToWork, setOpenToWork] = useState(false);
+    const [jobs, setJobs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [category, setCategory] = useState('software-dev');
+
+    const categories = [
+        { value: 'software-dev', label: 'Software Dev' },
+        { value: 'devops', label: 'DevOps / SysAdmin' },
+        { value: 'design', label: 'Design' },
+        { value: 'data', label: 'Data' },
+        { value: 'product', label: 'Product' },
+        { value: 'qa', label: 'QA' },
+    ];
+
+    const fetchJobs = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(
+                `https://remotive.com/api/remote-jobs?category=${category}&limit=50`
+            );
+            if (!res.ok) throw new Error('Failed to fetch jobs');
+            const data = await res.json();
+            // Filter for India-available jobs only
+            const indiaJobs = (data.jobs || []).filter(job =>
+                isIndiaJob(job.candidate_required_location)
+            );
+            setJobs(indiaJobs);
+        } catch (err) {
+            console.error('Job fetch error:', err);
+            setError('Could not load jobs. Please try again.');
+            setJobs([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [category]);
+
+    useEffect(() => {
+        fetchJobs();
+    }, [fetchJobs]);
+
+    // Filter jobs by search query
+    const filteredJobs = jobs.filter(job => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            job.title?.toLowerCase().includes(q) ||
+            job.company_name?.toLowerCase().includes(q) ||
+            job.tags?.some(t => t.toLowerCase().includes(q))
+        );
+    });
 
     return (
         <div className="min-h-screen bg-background">
@@ -85,52 +189,24 @@ export default function Careers() {
                         <h1 className="font-heading font-bold text-3xl sm:text-4xl tracking-tight text-foreground mb-3">
                             Careers & Opportunities
                         </h1>
-                        <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-                            Your projects speak louder than resumes. Find opportunities based on what you've built,
-                            or discover talented developers for your team.
+                        <p className="text-muted-foreground max-w-2xl mx-auto mb-2">
+                            Discover the latest developer jobs available in India.
+                            Apply directly on the hiring platform.
                         </p>
-
-                        {/* Open to Work Toggle (for authenticated users) */}
-                        {isAuthenticated && (
-                            <div className="inline-flex items-center gap-3 p-3 rounded-lg border border-border bg-card">
-                                <span className="text-sm text-foreground">
-                                    {openToWork ? (
-                                        <span className="flex items-center gap-2">
-                                            <CheckCircle className="w-4 h-4 text-green-500" />
-                                            You're visible to recruiters
-                                        </span>
-                                    ) : (
-                                        "Show you're open to work"
-                                    )}
-                                </span>
-                                <button
-                                    onClick={() => setOpenToWork(!openToWork)}
-                                    className={`
-                                        relative w-11 h-6 rounded-full transition-colors
-                                        ${openToWork ? 'bg-green-500' : 'bg-muted'}
-                                    `}
-                                >
-                                    <span
-                                        className={`
-                                            absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm
-                                            transition-transform
-                                            ${openToWork ? 'translate-x-5' : 'translate-x-0'}
-                                        `}
-                                    />
-                                </button>
-                            </div>
-                        )}
+                        <p className="text-xs text-muted-foreground/70">
+                            🇮🇳 India-focused · Jobs from Remotive, LinkedIn, Naukri & more · Updated every visit
+                        </p>
                     </div>
                 </div>
 
                 {/* Search Bar */}
-                <div className="relative max-w-2xl mx-auto mb-8">
+                <div className="relative max-w-2xl mx-auto mb-6">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search jobs, roles, or technologies…"
+                        placeholder="Filter jobs by title, company, or technology…"
                         className="
                             w-full pl-12 pr-4 py-3
                             rounded-xl border border-input bg-card
@@ -174,28 +250,103 @@ export default function Careers() {
                 {/* Content */}
                 {activeSection === 'jobs' ? (
                     <div className="space-y-4">
-                        {/* Info Banner */}
-                        <div className="flex items-start gap-3 p-4 rounded-lg bg-accent/10 border border-accent/20 mb-6">
-                            <Sparkles className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-sm text-foreground font-medium">Project-Based Hiring</p>
-                                <p className="text-sm text-muted-foreground">
-                                    Recruiters on KudosDev evaluate your projects first, not just your resume.
-                                    Keep your portfolio updated!
-                                </p>
+                        {/* Category Filter + Refresh */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div className="flex gap-1.5 p-1 bg-muted rounded-lg overflow-x-auto">
+                                {categories.map(cat => (
+                                    <button
+                                        key={cat.value}
+                                        onClick={() => setCategory(cat.value)}
+                                        className={`
+                                            px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all
+                                            ${category === cat.value
+                                                ? 'bg-card text-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground'}
+                                        `}
+                                    >
+                                        {cat.label}
+                                    </button>
+                                ))}
                             </div>
+                            <button
+                                onClick={fetchJobs}
+                                disabled={loading}
+                                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </button>
                         </div>
 
-                        {/* Job Cards */}
-                        {SAMPLE_JOBS.map(job => (
-                            <JobCard key={job.id} job={job} />
-                        ))}
+                        {/* Loading State */}
+                        {loading && (
+                            <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                <Loader2 className="w-8 h-8 text-accent animate-spin" />
+                                <p className="text-sm text-muted-foreground">Fetching latest jobs…</p>
+                            </div>
+                        )}
 
-                        {/* Load More */}
-                        <div className="text-center pt-4">
-                            <button className="text-sm text-muted-foreground hover:text-foreground">
-                                View more opportunities...
-                            </button>
+                        {/* Error State */}
+                        {error && !loading && (
+                            <div className="text-center py-12">
+                                <p className="text-sm text-red-500 mb-3">{error}</p>
+                                <button
+                                    onClick={fetchJobs}
+                                    className="text-sm text-accent hover:underline"
+                                >
+                                    Try again
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Job Cards */}
+                        {!loading && !error && filteredJobs.length > 0 && (
+                            <>
+                                <p className="text-xs text-muted-foreground">
+                                    Showing {filteredJobs.length} of {jobs.length} jobs
+                                </p>
+                                {filteredJobs.map(job => (
+                                    <JobCard key={job.id} job={job} />
+                                ))}
+                            </>
+                        )}
+
+                        {/* Empty State */}
+                        {!loading && !error && filteredJobs.length === 0 && (
+                            <div className="text-center py-12">
+                                <Briefcase className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                                <p className="text-muted-foreground mb-2">
+                                    {searchQuery
+                                        ? 'No India-based jobs match your search.'
+                                        : 'No India-based jobs found in this category right now.'}
+                                </p>
+                                <p className="text-sm text-muted-foreground/70">
+                                    Try a different category or browse popular Indian job platforms below ↓
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Browse More on Other Platforms */}
+                        <div className="pt-6 border-t border-border mt-6">
+                            <h3 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                                <Globe className="w-4 h-4 text-accent" />
+                                Browse More on Other Platforms
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {JOB_PLATFORMS.map(platform => (
+                                    <a
+                                        key={platform.name}
+                                        href={platform.searchUrl(searchQuery)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all hover:shadow-sm ${platform.color}`}
+                                    >
+                                        <span>{platform.icon}</span>
+                                        {platform.name}
+                                        <ExternalLink className="w-3 h-3 opacity-60" />
+                                    </a>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -237,79 +388,103 @@ export default function Careers() {
     );
 }
 
-/* Job Card Component */
+/* ─── Job Card Component ─── */
 const JobCard = ({ job }) => {
     const typeColors = {
-        'Internship': 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-        'Freelance': 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-        'Entry-level': 'bg-green-500/10 text-green-600 dark:text-green-400',
-        'Full-time': 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+        'full_time': 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+        'contract': 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+        'part_time': 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+        'freelance': 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+        'internship': 'bg-green-500/10 text-green-600 dark:text-green-400',
+        'other': 'bg-muted text-muted-foreground',
+    };
+
+    const formatType = (type) => {
+        if (!type) return 'Other';
+        return type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     };
 
     return (
-        <div className="group rounded-lg border border-border bg-card p-5 hover:border-accent/50 hover:shadow-md transition-all">
+        <a
+            href={job.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block rounded-lg border border-border bg-card p-5 hover:border-accent/50 hover:shadow-md transition-all"
+        >
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex-1">
                     {/* Title & Company */}
                     <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                            <Building2 className="w-5 h-5 text-muted-foreground" />
-                        </div>
+                        {job.company_logo ? (
+                            <img
+                                src={job.company_logo}
+                                alt={job.company_name}
+                                className="w-10 h-10 rounded-lg object-contain bg-muted flex-shrink-0"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                        ) : (
+                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                                <Building2 className="w-5 h-5 text-muted-foreground" />
+                            </div>
+                        )}
                         <div>
                             <h3 className="font-medium text-foreground group-hover:text-accent transition-colors">
                                 {job.title}
                             </h3>
-                            <p className="text-sm text-muted-foreground">{job.company}</p>
+                            <p className="text-sm text-muted-foreground">{job.company_name}</p>
                         </div>
                     </div>
 
                     {/* Meta */}
                     <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            {job.location}
-                        </span>
-                        {job.salary && (
+                        {job.candidate_required_location && (
                             <span className="flex items-center gap-1">
-                                <DollarSign className="w-4 h-4" />
+                                <MapPin className="w-4 h-4" />
+                                {formatLocationForIndia(job.candidate_required_location)}
+                            </span>
+                        )}
+                        {job.salary && job.salary.trim() && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 font-medium">
                                 {job.salary}
                             </span>
                         )}
                         <span className="flex items-center gap-1">
                             <Clock className="w-4 h-4" />
-                            {job.posted}
+                            {formatTimeAgo(job.publication_date)}
                         </span>
                     </div>
 
-                    {/* Tech Stack */}
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                        {job.tech.map(tech => (
-                            <span
-                                key={tech}
-                                className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-                            >
-                                {tech}
-                            </span>
-                        ))}
-                    </div>
+                    {/* Tags */}
+                    {job.tags && job.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                            {job.tags.slice(0, 5).map(tag => (
+                                <span
+                                    key={tag}
+                                    className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                                >
+                                    {tag}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                {/* Type Badge & Action */}
+                {/* Type Badge & Source */}
                 <div className="flex sm:flex-col items-center sm:items-end gap-3">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${typeColors[job.type] || 'bg-muted text-muted-foreground'}`}>
-                        {job.type}
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${typeColors[job.job_type] || typeColors['other']}`}>
+                        {formatType(job.job_type)}
                     </span>
-                    <button className="inline-flex items-center gap-1.5 text-sm text-accent hover:underline">
-                        View Details
+                    <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+                        Apply Now
                         <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+                    </span>
                 </div>
             </div>
-        </div>
+        </a>
     );
 };
 
-/* Contributor Request Card */
+/* ─── Contributor Request Card ─── */
 const ContributorCard = ({ request }) => {
     return (
         <div className="group rounded-lg border border-border bg-card p-5 hover:border-accent/50 hover:shadow-md transition-all">

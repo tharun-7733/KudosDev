@@ -72,4 +72,18 @@ export const blogAPI = {
     }),
 };
 
+// Analytics APIs (separate microservice on port 4000)
+const ANALYTICS_BASE_URL = process.env.REACT_APP_ANALYTICS_URL || 'http://localhost:4000';
+
+const analyticsClient = axios.create({
+    baseURL: ANALYTICS_BASE_URL,
+    headers: { 'Content-Type': 'application/json' },
+});
+
+export const analyticsAPI = {
+    track: (page) => analyticsClient.post('/api/analytics/track', { page }),
+    getPageStats: (page) => analyticsClient.get(`/api/analytics/stats/${encodeURIComponent(page)}`),
+    getAllStats: () => analyticsClient.get('/api/analytics/stats'),
+};
+
 export default api;

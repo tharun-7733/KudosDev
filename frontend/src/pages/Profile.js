@@ -3,9 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../context/AuthContext';
-import { projectAPI, blogAPI } from '../lib/api';
+import { projectAPI, blogAPI, userAPI, analyticsAPI } from '../lib/api';
 import {
     ProfileHeader,
+    ProfileShareCard,
     AnalyticsCard,
     SkillsSection,
     ActivityTimeline,
@@ -27,6 +28,8 @@ export default function Profile() {
     const [viewMode, setViewMode] = useState('grid');
     const [activeTab, setActiveTab] = useState('all');
     const [isFollowing, setIsFollowing] = useState(false);
+    const [profileVisits, setProfileVisits] = useState(0);
+    const [showShareCard, setShowShareCard] = useState(false);
 
     // Determine if viewing own profile
     const isOwnProfile = isAuthenticated && currentUser?.username === username;
@@ -34,20 +37,22 @@ export default function Profile() {
     const fetchProfileData = useCallback(async () => {
         setLoading(true);
         try {
-            // Try to fetch user by username
+            // Fetch user profile from real API
             if (isOwnProfile) {
-                // Use current user data for own profile
                 setProfileUser(currentUser);
             } else {
-                // Fetch public profile - for now use mock data
-                // Will need backend endpoint: GET /api/users/:username
-                setProfileUser({
-                    username: username,
-                    full_name: username.charAt(0).toUpperCase() + username.slice(1),
-                    bio: 'Developer building awesome things',
-                    skills: ['React', 'Python', 'Node.js'],
-                    created_at: new Date().toISOString()
-                });
+                try {
+                    const userRes = await userAPI.getByUsername(username);
+                    setProfileUser(userRes.data);
+                } catch {
+                    setProfileUser({
+                        username: username,
+                        full_name: username.charAt(0).toUpperCase() + username.slice(1),
+                        bio: '',
+                        skills: [],
+                        created_at: new Date().toISOString()
+                    });
+                }
             }
 
             // Fetch user's projects
@@ -72,6 +77,15 @@ export default function Profile() {
             } catch (error) {
                 // Blog fetch is non-critical
             }
+
+            // Track this profile visit & get analytics
+            try {
+                await analyticsAPI.track(`/profile/${username}`);
+                const analyticsRes = await analyticsAPI.getPageStats(`/profile/${username}`);
+                setProfileVisits(analyticsRes.data?.data?.uniqueVisitors || 0);
+            } catch {
+                // Analytics is non-critical
+            }
         } catch (error) {
             console.error('Failed to fetch profile:', error);
         } finally {
@@ -85,20 +99,19 @@ export default function Profile() {
 
     const handleFollow = () => {
         setIsFollowing(!isFollowing);
-        // TODO: API call to follow/unfollow
     };
 
-    // Mock stats for demo
+    // Real stats — computed from actual data
     const stats = {
         projects: projects.length,
         blogPosts: blogs.length,
         blogViews: blogs.reduce((sum, b) => sum + (b.view_count || 0), 0),
         blogReactions: blogs.reduce((sum, b) => sum + (b.reaction_count || 0), 0),
-        views: 1234,
-        stars: 56,
-        followers: 23,
-        following: 15,
-        profileVisits: 89
+        views: 0,
+        stars: 0,
+        followers: 0,
+        following: 0,
+        profileVisits: profileVisits,
     };
 
     // Filter projects by tab
@@ -108,6 +121,51 @@ export default function Profile() {
         if (activeTab === 'archived') return p.status === 'archived';
         return true;
     });
+
+    // Build real activity list from projects and blogs
+    const buildActivities = () => {
+        const activities = [];
+
+        projects.forEach(p => {
+            activities.push({
+                type: 'published',
+                title: 'Published a project',
+                project: p.title,
+                time: p.created_at,
+            });
+        });
+
+        blogs.forEach(b => {
+            activities.push({
+                type: 'updated',
+                title: 'Published a blog post',
+                project: b.title,
+                time: b.published_at || b.created_at,
+            });
+        });
+
+        // Sort by most recent first
+        activities.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+        // Format times as relative
+        return activities.slice(0, 10).map(a => ({
+            ...a,
+            time: formatTimeAgo(a.time),
+        }));
+    };
+
+    const formatTimeAgo = (dateStr) => {
+        if (!dateStr) return '';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins} min ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+        const months = Math.floor(days / 30);
+        return `${months} month${months > 1 ? 's' : ''} ago`;
+    };
 
     if (loading) {
         return (
@@ -125,20 +183,7 @@ export default function Profile() {
         );
     }
 
-    // Mock lists for followers/following
-    const followerList = [
-        { username: 'janedoe', full_name: 'Jane Doe' },
-        { username: 'bobsmith', full_name: 'Bob Smith' },
-        { username: 'alice', full_name: 'Alice Johnson' },
-        { username: 'charlie', full_name: 'Charlie Brown' },
-        { username: 'dev_guru', full_name: 'Dev Guru' },
-    ];
-
-    const followingList = [
-        { username: 'adminuser', full_name: 'Admin User' },
-        { username: 'sarah_dev', full_name: 'Sarah Dev' },
-        { username: 'mike_codes', full_name: 'Mike Codes' },
-    ];
+    const realActivities = buildActivities();
 
     return (
         <div className="min-h-screen bg-background">
@@ -151,14 +196,15 @@ export default function Profile() {
                     isOwnProfile={isOwnProfile}
                     onFollow={handleFollow}
                     isFollowing={isFollowing}
+                    onShare={() => setShowShareCard(true)}
                 />
 
                 {/* Analytics */}
                 <AnalyticsCard
                     stats={stats}
                     isOwnProfile={isOwnProfile}
-                    followerList={followerList}
-                    followingList={followingList}
+                    followerList={[]}
+                    followingList={[]}
                 />
 
                 {/* Two Column Layout for Skills + Activity */}
@@ -170,7 +216,10 @@ export default function Profile() {
                     />
 
                     {/* Activity Timeline */}
-                    <ActivityTimeline isOwnProfile={isOwnProfile} />
+                    <ActivityTimeline
+                        activities={realActivities}
+                        isOwnProfile={isOwnProfile}
+                    />
                 </div>
 
                 {/* Socials & Links */}
@@ -310,6 +359,15 @@ export default function Profile() {
                 )}
             </main>
             <Footer />
+
+            {/* Share Card Modal */}
+            {showShareCard && (
+                <ProfileShareCard
+                    user={profileUser}
+                    stats={stats}
+                    onClose={() => setShowShareCard(false)}
+                />
+            )}
         </div>
     );
 }
