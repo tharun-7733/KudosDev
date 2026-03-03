@@ -8,6 +8,7 @@ import logging
 if not hasattr(bcrypt, "__about__"):
     bcrypt.__about__ = type("About", (object,), {"__version__": bcrypt.__version__})
 
+import asyncio
 import re
 import uuid
 import os
@@ -16,7 +17,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
@@ -26,6 +27,11 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 from database import db, client
+
+
+from starlette.responses import StreamingResponse
+from events import event_bus
+import json
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -123,6 +129,25 @@ async def get_current_user(
     return user
 
 
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
+) -> Optional[dict]:
+    """Like get_current_user but returns None instead of 401."""
+    if credentials is None:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+    except JWTError:
+        return None
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    return user
+
+
 # ---------------------------------------------------------------------------
 # Pydantic Models
 # ---------------------------------------------------------------------------
@@ -154,6 +179,22 @@ class UserResponse(BaseModel):
     location: Optional[str] = None
     skills: List[str] = []
     created_at: datetime
+
+
+class DeveloperResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    full_name: str
+    username: str
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    github_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    website_url: Optional[str] = None
+    location: Optional[str] = None
+    skills: List[str] = []
+    created_at: datetime
+    project_count: int = 0
 
 
 class UserUpdate(BaseModel):
@@ -345,6 +386,24 @@ def _user_response(user: dict) -> UserResponse:
     )
 
 
+async def _developer_response(user: dict) -> DeveloperResponse:
+    """Build a DeveloperResponse from a raw MongoDB document including project count."""
+    count = await db.projects.count_documents({"user_username": user["username"]})
+    return DeveloperResponse(
+        full_name=user["full_name"],
+        username=user["username"],
+        bio=user.get("bio"),
+        avatar_url=user.get("avatar_url"),
+        github_url=user.get("github_url"),
+        linkedin_url=user.get("linkedin_url"),
+        website_url=user.get("website_url"),
+        location=user.get("location"),
+        skills=user.get("skills", []),
+        created_at=parse_datetime(user["created_at"]),
+        project_count=count
+    )
+
+
 def _project_response(project: dict) -> ProjectResponse:
     """Build a ProjectResponse from a raw MongoDB document."""
     p = project.copy()
@@ -369,6 +428,18 @@ def _project_response(project: dict) -> ProjectResponse:
     return ProjectResponse(**p)
 
 
+def _serialize(doc: dict) -> dict:
+    """Sanitize a MongoDB doc for SSE broadcast."""
+    doc = doc.copy()
+    doc.pop("_id", None)
+    doc.pop("password", None)
+    # Convert datetime objects to ISO strings for JSON serialization
+    for key, value in doc.items():
+        if isinstance(value, datetime):
+            doc[key] = value.isoformat()
+    return doc
+
+
 # ---------------------------------------------------------------------------
 # App lifecycle
 # ---------------------------------------------------------------------------
@@ -376,14 +447,14 @@ def _project_response(project: dict) -> ProjectResponse:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup — verify MongoDB connection
     try:
         await client.admin.command("ping")
         logger.info("Successfully connected to MongoDB")
     except Exception as e:
         logger.error("Failed to connect to MongoDB: %s", e)
 
-    # Ensure the default admin user exists and has the correct password
+    # Ensure the default admin user exists
     try:
         admin_email = "admin@gmail.com"
         seed_user_data = {
@@ -400,20 +471,91 @@ async def lifespan(app: FastAPI):
             "skills": ["React", "Python", "FastAPI"],
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
-        
-        # Use update_one with upsert=True to force the credentials to be correct
         await db.users.update_one(
             {"email": admin_email},
-            {"$set": seed_user_data},
-            upsert=True
+            {"$setOnInsert": seed_user_data},
+            upsert=True,
         )
-        logger.info("Admin user verified and credentials reset → admin@gmail.com / admin")
+        logger.info("Admin user ensured (only seeded if not already present)")
     except Exception as e:
         logger.warning("Could not ensure admin user: %s", e)
 
+    # Start Change Stream watchers as background tasks
+    watcher_tasks = [
+        asyncio.create_task(_watch_projects()),
+        asyncio.create_task(_watch_blogs()),
+        asyncio.create_task(_watch_comments()),
+    ]
+    logger.info("Change Stream watchers started for projects, blogs, comments")
+
     yield
-    # Shutdown
+
+    # Shutdown — cancel watchers and close DB
+    for task in watcher_tasks:
+        task.cancel()
     client.close()
+
+
+# ---------------------------------------------------------------------------
+# Change Stream Watchers
+# ---------------------------------------------------------------------------
+
+_CHANGE_PIPELINE = [{"$match": {"operationType": {"$in": ["insert", "update", "delete"]}}}]
+
+
+async def _watch_projects():
+    """Watch the projects collection and broadcast events."""
+    try:
+        async with db.projects.watch(_CHANGE_PIPELINE, full_document="updateLookup") as stream:
+            async for change in stream:
+                op = change["operationType"]
+                doc = change.get("fullDocument")
+                if op == "insert" and doc:
+                    await event_bus.publish({"type": "project:new", "data": _serialize(doc)})
+                elif op == "update" and doc:
+                    await event_bus.publish({"type": "project:updated", "data": _serialize(doc)})
+                elif op == "delete":
+                    doc_key = str(change["documentKey"]["_id"])
+                    await event_bus.publish({"type": "project:deleted", "data": {"id": doc_key}})
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.error(f"Projects change stream error: {e}")
+
+
+async def _watch_blogs():
+    """Watch the blogs collection and broadcast events."""
+    try:
+        async with db.blogs.watch(_CHANGE_PIPELINE, full_document="updateLookup") as stream:
+            async for change in stream:
+                op = change["operationType"]
+                doc = change.get("fullDocument")
+                if op == "insert" and doc:
+                    await event_bus.publish({"type": "blog:new", "data": _serialize(doc)})
+                elif op == "update" and doc:
+                    await event_bus.publish({"type": "blog:updated", "data": _serialize(doc)})
+                elif op == "delete":
+                    doc_key = str(change["documentKey"]["_id"])
+                    await event_bus.publish({"type": "blog:deleted", "data": {"id": doc_key}})
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.error(f"Blogs change stream error: {e}")
+
+
+async def _watch_comments():
+    """Watch the comments collection and broadcast events."""
+    try:
+        async with db.comments.watch(_CHANGE_PIPELINE, full_document="updateLookup") as stream:
+            async for change in stream:
+                op = change["operationType"]
+                doc = change.get("fullDocument")
+                if op == "insert" and doc:
+                    await event_bus.publish({"type": "comment:new", "data": _serialize(doc)})
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.error(f"Comments change stream error: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -559,12 +701,141 @@ async def reset_password(data: ResetPassword):
 # ---------------------------------------------------------------------------
 
 
+@api_router.get("/developers", response_model=List[DeveloperResponse])
+async def get_developers(
+    q: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100)
+):
+    query = {}
+    if q:
+        query = {
+            "$or": [
+                {"full_name": {"$regex": q, "$options": "i"}},
+                {"username": {"$regex": q, "$options": "i"}}
+            ]
+        }
+    
+    users_cursor = db.users.find(query, {"password": 0, "_id": 0}).skip(skip).limit(limit)
+    users = await users_cursor.to_list(length=limit)
+    
+    developers = []
+    for u in users:
+        dev = await _developer_response(u)
+        developers.append(dev)
+    
+    return developers
+
+
 @api_router.get("/users/{username}", response_model=UserResponse)
 async def get_user_by_username(username: str):
     user = await db.users.find_one({"username": username}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return _user_response(user)
+
+
+# ---------------------------------------------------------------------------
+# Follow / Unfollow Routes
+# ---------------------------------------------------------------------------
+
+
+@api_router.post("/users/{username}/follow")
+async def follow_user(username: str, current_user: dict = Depends(get_current_user)):
+    """Follow a user by username."""
+    if current_user["username"] == username:
+        raise HTTPException(status_code=400, detail="Cannot follow yourself")
+
+    target = await db.users.find_one({"username": username})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent duplicate follows
+    existing = await db.follows.find_one({
+        "follower_email": current_user["email"],
+        "following_email": target["email"],
+    })
+    if existing:
+        return {"message": "Already following"}
+
+    await db.follows.insert_one({
+        "follower_email": current_user["email"],
+        "follower_username": current_user["username"],
+        "following_email": target["email"],
+        "following_username": target["username"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"message": "Followed successfully"}
+
+
+@api_router.delete("/users/{username}/follow")
+async def unfollow_user(username: str, current_user: dict = Depends(get_current_user)):
+    """Unfollow a user by username."""
+    target = await db.users.find_one({"username": username})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.follows.delete_one({
+        "follower_email": current_user["email"],
+        "following_email": target["email"],
+    })
+    return {"message": "Unfollowed successfully"}
+
+
+@api_router.get("/users/{username}/followers")
+async def get_followers(username: str):
+    """Get list of users who follow this user."""
+    target = await db.users.find_one({"username": username})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    follows = await db.follows.find(
+        {"following_email": target["email"]}, {"_id": 0}
+    ).to_list(500)
+
+    follower_emails = [f["follower_email"] for f in follows]
+    if not follower_emails:
+        return []
+
+    users = await db.users.find(
+        {"email": {"$in": follower_emails}}, {"_id": 0, "password": 0}
+    ).to_list(500)
+    return users
+
+
+@api_router.get("/users/{username}/following")
+async def get_following(username: str):
+    """Get list of users this user follows."""
+    target = await db.users.find_one({"username": username})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    follows = await db.follows.find(
+        {"follower_email": target["email"]}, {"_id": 0}
+    ).to_list(500)
+
+    following_emails = [f["following_email"] for f in follows]
+    if not following_emails:
+        return []
+
+    users = await db.users.find(
+        {"email": {"$in": following_emails}}, {"_id": 0, "password": 0}
+    ).to_list(500)
+    return users
+
+
+@api_router.get("/users/{username}/is-following")
+async def check_is_following(username: str, current_user: dict = Depends(get_current_user)):
+    """Check if current user follows this user."""
+    target = await db.users.find_one({"username": username})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = await db.follows.find_one({
+        "follower_email": current_user["email"],
+        "following_email": target["email"],
+    })
+    return {"is_following": existing is not None}
 
 
 # ---------------------------------------------------------------------------
@@ -585,7 +856,15 @@ async def create_project(project_data: ProjectCreate, current_user: dict = Depen
     project_dict["updated_at"] = now
 
     await db.projects.insert_one(project_dict)
-    return _project_response(project_dict)
+
+    # Emit real-time event (faster than waiting for Change Stream)
+    response = _project_response(project_dict)
+    await event_bus.publish({
+        "type": "project:new",
+        "data": response.model_dump(mode="json"),
+    })
+
+    return response
 
 
 @api_router.get("/projects", response_model=List[ProjectResponse])
@@ -662,7 +941,12 @@ async def update_project(
     await db.projects.update_one({"project_id": project_id}, {"$set": update_data})
 
     updated_project = await db.projects.find_one({"project_id": project_id}, {"_id": 0})
-    return _project_response(updated_project)
+    response = _project_response(updated_project)
+    await event_bus.publish({
+        "type": "project:updated",
+        "data": response.model_dump(mode="json"),
+    })
+    return response
 
 
 @api_router.delete("/projects/{project_id}")
@@ -679,6 +963,12 @@ async def delete_project(project_id: str, current_user: dict = Depends(get_curre
 
     result = await db.projects.delete_one({"project_id": project_id})
     logger.info(f"Project deletion result for {project_id}: {result.deleted_count} documents deleted")
+
+    await event_bus.publish({
+        "type": "project:deleted",
+        "data": {"project_id": project_id},
+    })
+
     return {"message": "Project deleted successfully"}
 
 
@@ -731,7 +1021,15 @@ async def create_blog(blog_data: BlogCreate, current_user: dict = Depends(get_cu
     else:
         blog_dict["published_at"] = None
     await db.blogs.insert_one(blog_dict)
-    return _blog_response(blog_dict)
+
+    response = _blog_response(blog_dict)
+    if blog_data.status == "published":
+        await event_bus.publish({
+            "type": "blog:new",
+            "data": response.model_dump(mode="json"),
+        })
+
+    return response
 
 
 @api_router.get("/blogs", response_model=List[BlogResponse])
@@ -767,13 +1065,20 @@ async def get_my_blogs(current_user: dict = Depends(get_current_user)):
 
 
 @api_router.get("/blogs/{slug}", response_model=BlogResponse)
-async def get_blog_by_slug(slug: str):
+async def get_blog_by_slug(
+    slug: str,
+    current_user: Optional[dict] = Depends(get_optional_user),
+):
     blog = await db.blogs.find_one({"slug": slug}, {"_id": 0})
     if not blog:
         raise HTTPException(status_code=404, detail="Blog not found")
-    # Increment view count
-    await db.blogs.update_one({"slug": slug}, {"$inc": {"view_count": 1}})
-    blog["view_count"] = blog.get("view_count", 0) + 1
+
+    # Only increment view_count if the viewer is NOT the author
+    is_author = current_user and current_user.get("email") == blog.get("author_email")
+    if not is_author:
+        await db.blogs.update_one({"slug": slug}, {"$inc": {"view_count": 1}})
+        blog["view_count"] = blog.get("view_count", 0) + 1
+
     return _blog_response(blog)
 
 
@@ -797,7 +1102,14 @@ async def update_blog(
 
     await db.blogs.update_one({"blog_id": blog_id}, {"$set": update_data})
     updated = await db.blogs.find_one({"blog_id": blog_id}, {"_id": 0})
-    return _blog_response(updated)
+    response = _blog_response(updated)
+
+    await event_bus.publish({
+        "type": "blog:updated",
+        "data": response.model_dump(mode="json"),
+    })
+
+    return response
 
 
 @api_router.delete("/blogs/{blog_id}")
@@ -815,6 +1127,12 @@ async def delete_blog(blog_id: str, current_user: dict = Depends(get_current_use
     await db.comments.delete_many({"blog_id": blog_id})
     await db.reactions.delete_many({"blog_id": blog_id})
     logger.info(f"Blog {blog_id} and associated data deleted successfully")
+
+    await event_bus.publish({
+        "type": "blog:deleted",
+        "data": {"blog_id": blog_id},
+    })
+
     return {"message": "Blog deleted successfully"}
 
 
@@ -858,7 +1176,14 @@ async def publish_blog(blog_id: str, current_user: dict = Depends(get_current_us
         {"$set": {"status": "published", "published_at": now, "updated_at": now}},
     )
     updated = await db.blogs.find_one({"blog_id": blog_id}, {"_id": 0})
-    return _blog_response(updated)
+    response = _blog_response(updated)
+
+    await event_bus.publish({
+        "type": "blog:new",
+        "data": response.model_dump(mode="json"),
+    })
+
+    return response
 
 
 @api_router.post("/blogs/{blog_id}/unpublish", response_model=BlogResponse)
@@ -994,6 +1319,44 @@ async def get_bookmarks(current_user: dict = Depends(get_current_user)):
     blog_ids = [b["blog_id"] for b in bookmarks]
     blogs = await db.blogs.find({"blog_id": {"$in": blog_ids}}, {"_id": 0}).to_list(100)
     return [_blog_response(b) for b in blogs]
+
+
+# ---------------------------------------------------------------------------
+# SSE Stream Endpoint
+# ---------------------------------------------------------------------------
+
+
+@api_router.get("/stream/events")
+async def sse_stream():
+    """SSE endpoint — clients subscribe to real-time updates."""
+
+    async def event_generator():
+        queue = await event_bus.subscribe()
+        try:
+            # Send initial heartbeat so the client knows the connection is alive
+            yield ": connected\n\n"
+            while True:
+                try:
+                    # Wait for events with a timeout (heartbeat every 30s)
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"event: {event['type']}\ndata: {json.dumps(event['data'])}\n\n"
+                except asyncio.TimeoutError:
+                    # Send heartbeat comment to keep connection alive
+                    yield ": heartbeat\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            event_bus.unsubscribe(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

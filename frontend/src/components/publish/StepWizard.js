@@ -156,7 +156,7 @@ export const StepNavigation = ({
                                 Publishing...
                             </>
                         ) : (
-                            '🚀 Publish Project'
+                            'Publish Project'
                         )}
                     </button>
                 ) : (

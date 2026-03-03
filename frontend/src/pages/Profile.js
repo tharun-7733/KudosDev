@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useAuth } from '../context/AuthContext';
 import { projectAPI, blogAPI, userAPI, analyticsAPI } from '../lib/api';
+import { toast } from 'sonner';
 import {
     ProfileHeader,
     ProfileShareCard,
@@ -14,7 +15,7 @@ import {
 } from '../components/profile';
 import {
     LayoutGrid, List, Github, Eye, Star,
-    Code2, BookOpen, MessageSquare
+    Code2, BookOpen, MessageSquare, Users
 } from 'lucide-react';
 
 export default function Profile() {
@@ -26,10 +27,12 @@ export default function Profile() {
     const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('grid');
-    const [activeTab, setActiveTab] = useState('all');
     const [isFollowing, setIsFollowing] = useState(false);
+    const [followers, setFollowers] = useState([]);
+    const [following, setFollowing] = useState([]);
     const [profileVisits, setProfileVisits] = useState(0);
     const [showShareCard, setShowShareCard] = useState(false);
+    const [showUserList, setShowUserList] = useState(null); // 'followers' | 'following' | null
 
     // Determine if viewing own profile
     const isOwnProfile = isAuthenticated && currentUser?.username === username;
@@ -86,6 +89,28 @@ export default function Profile() {
             } catch {
                 // Analytics is non-critical
             }
+
+            // Fetch followers & following
+            try {
+                const [followersRes, followingRes] = await Promise.all([
+                    userAPI.getFollowers(username),
+                    userAPI.getFollowing(username),
+                ]);
+                setFollowers(followersRes.data || []);
+                setFollowing(followingRes.data || []);
+            } catch {
+                // Non-critical
+            }
+
+            // Check if current user follows this profile
+            if (isAuthenticated && !isOwnProfile) {
+                try {
+                    const res = await userAPI.isFollowing(username);
+                    setIsFollowing(res.data?.is_following || false);
+                } catch {
+                    // Non-critical
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch profile:', error);
         } finally {
@@ -97,8 +122,22 @@ export default function Profile() {
         fetchProfileData();
     }, [fetchProfileData]);
 
-    const handleFollow = () => {
-        setIsFollowing(!isFollowing);
+    const handleFollow = async () => {
+        try {
+            if (isFollowing) {
+                await userAPI.unfollow(username);
+                setIsFollowing(false);
+                setFollowers(prev => prev.filter(f => f.email !== currentUser?.email));
+                toast.success(`Unfollowed @${username}`);
+            } else {
+                await userAPI.follow(username);
+                setIsFollowing(true);
+                setFollowers(prev => [...prev, currentUser]);
+                toast.success(`Following @${username}`);
+            }
+        } catch (error) {
+            toast.error('Failed to update follow status');
+        }
     };
 
     // Real stats — computed from actual data
@@ -109,18 +148,13 @@ export default function Profile() {
         blogReactions: blogs.reduce((sum, b) => sum + (b.reaction_count || 0), 0),
         views: 0,
         stars: 0,
-        followers: 0,
-        following: 0,
+        followers: followers.length,
+        following: following.length,
         profileVisits: profileVisits,
     };
 
-    // Filter projects by tab
-    const filteredProjects = projects.filter(p => {
-        if (activeTab === 'all') return true;
-        if (activeTab === 'featured') return p.is_featured;
-        if (activeTab === 'archived') return p.status === 'archived';
-        return true;
-    });
+    // Filter projects (show all since we removed featured/archived tabs)
+    const filteredProjects = projects;
 
     // Build real activity list from projects and blogs
     const buildActivities = () => {
@@ -197,14 +231,17 @@ export default function Profile() {
                     onFollow={handleFollow}
                     isFollowing={isFollowing}
                     onShare={() => setShowShareCard(true)}
+                    stats={stats}
+                    onShowFollowers={() => setShowUserList('followers')}
+                    onShowFollowing={() => setShowUserList('following')}
                 />
 
                 {/* Analytics */}
                 <AnalyticsCard
                     stats={stats}
                     isOwnProfile={isOwnProfile}
-                    followerList={[]}
-                    followingList={[]}
+                    followerList={followers}
+                    followingList={following}
                 />
 
                 {/* Two Column Layout for Skills + Activity */}
@@ -234,23 +271,6 @@ export default function Profile() {
                         </h2>
 
                         <div className="flex items-center gap-3">
-                            {/* Tabs */}
-                            <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                                {['all', 'featured', 'archived'].map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`
-                                            px-3 py-1 rounded-md text-xs font-medium capitalize transition-all
-                                            ${activeTab === tab
-                                                ? 'bg-card text-foreground shadow-sm'
-                                                : 'text-muted-foreground hover:text-foreground'}
-                                        `}
-                                    >
-                                        {tab}
-                                    </button>
-                                ))}
-                            </div>
 
                             {/* View Toggle */}
                             <div className="flex border border-border rounded-lg overflow-hidden">
@@ -367,6 +387,46 @@ export default function Profile() {
                     stats={stats}
                     onClose={() => setShowShareCard(false)}
                 />
+            )}
+
+            {/* Follower / Following List Modal */}
+            {showUserList && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowUserList(null)}>
+                    <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-5 border-b border-border">
+                            <h3 className="font-heading font-bold text-lg text-foreground">
+                                {showUserList === 'followers' ? 'Followers' : 'Following'}
+                            </h3>
+                            <button onClick={() => setShowUserList(null)} className="text-muted-foreground hover:text-foreground transition-colors text-xl leading-none">&times;</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            {(showUserList === 'followers' ? followers : following).length > 0 ? (
+                                (showUserList === 'followers' ? followers : following).map((u, idx) => (
+                                    <a
+                                        key={u.username || idx}
+                                        href={`/profile/${u.username}`}
+                                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-all group"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-primary flex items-center justify-center text-white font-bold text-sm">
+                                            {u.full_name?.charAt(0) || 'U'}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-foreground truncate group-hover:text-accent transition-colors">
+                                                {u.full_name || u.username}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground truncate">@{u.username}</p>
+                                        </div>
+                                    </a>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                    <Users className="w-10 h-10 mb-2 opacity-40" />
+                                    <p className="text-sm">No {showUserList} yet</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

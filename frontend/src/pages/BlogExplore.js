@@ -3,6 +3,7 @@ import { blogAPI } from '../lib/api';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import BlogCard from '../components/blog/BlogCard';
+import { useEventStream } from '../hooks/useEventStream';
 import { Search, SlidersHorizontal } from 'lucide-react';
 
 const CATEGORIES = ['all', 'devlog', 'tutorial', 'opinion', 'showcase'];
@@ -16,6 +17,24 @@ export default function BlogExplore() {
     useEffect(() => {
         fetchBlogs();
     }, [activeCategory]);
+
+    // Subscribe to live blog updates via SSE
+    useEventStream({
+        'blog:new': (blog) => {
+            if (blog.status === 'published') {
+                setBlogs(prev => [blog, ...prev]);
+            }
+        },
+        'blog:updated': (blog) => {
+            setBlogs(prev =>
+                prev.map(b => b.blog_id === blog.blog_id ? blog : b)
+            );
+        },
+        'blog:deleted': (data) => {
+            const deletedId = data.blog_id || data.id;
+            setBlogs(prev => prev.filter(b => b.blog_id !== deletedId));
+        },
+    });
 
     const fetchBlogs = async () => {
         setLoading(true);

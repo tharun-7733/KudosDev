@@ -2,10 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
-import { projectAPI } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { projectAPI, blogAPI, userAPI } from '../lib/api';
+import { useEventStream } from '../hooks/useEventStream';
+import BlogCard from '../components/blog/BlogCard';
 import {
     Search, Filter, TrendingUp, Clock, Star,
-    ExternalLink, Github, Users, Code2, Briefcase
+    ExternalLink, Github, Users, Code2, Briefcase, PenSquare
 } from 'lucide-react';
 
 // Tech stack options for filtering
@@ -22,7 +25,10 @@ const SORT_OPTIONS = [
     { value: 'popular', label: 'Most Popular', icon: Star }
 ];
 
+const BLOG_CATEGORIES = ['all', 'devlog', 'tutorial', 'opinion', 'showcase'];
+
 export default function Explore() {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('projects');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('trending');
@@ -32,7 +38,9 @@ export default function Explore() {
     // Data states
     const [projects, setProjects] = useState([]);
     const [developers, setDevelopers] = useState([]);
+    const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [activeCategory, setActiveCategory] = useState('all');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -40,26 +48,66 @@ export default function Explore() {
             if (activeTab === 'projects') {
                 const response = await projectAPI.getAll();
                 setProjects(response.data || []);
-            } else {
-                // For now, show empty - will need backend endpoint
-                setDevelopers([]);
+            } else if (activeTab === 'blogs') {
+                const params = {};
+                if (activeCategory !== 'all') params.category = activeCategory;
+                const res = await blogAPI.getAll(params);
+                setBlogs(res.data || []);
+            } else if (activeTab === 'developers') {
+                const params = { limit: 20 };
+                if (searchQuery) params.q = searchQuery;
+                const res = await userAPI.getDevelopers(params);
+                setDevelopers(res.data || []);
             }
         } catch (error) {
             console.error('Failed to fetch data:', error);
         } finally {
             setLoading(false);
         }
-    }, [activeTab]);
+    }, [activeTab, activeCategory, searchQuery]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // Filter projects based on search and tech stack
+    // Subscribe to live project updates via SSE
+    useEventStream({
+        'project:new': (project) => {
+            setProjects(prev => [project, ...prev]);
+        },
+        'project:updated': (project) => {
+            setProjects(prev =>
+                prev.map(p => p.project_id === project.project_id ? project : p)
+            );
+        },
+        'project:deleted': (data) => {
+            const deletedId = data.project_id || data.id;
+            setProjects(prev => prev.filter(p => p.project_id !== deletedId));
+        },
+        'blog:new': (blog) => {
+            if (blog.status === 'published') {
+                setBlogs(prev => [blog, ...prev]);
+            }
+        },
+        'blog:updated': (blog) => {
+            setBlogs(prev =>
+                prev.map(b => b.blog_id === blog.blog_id ? blog : b)
+            );
+        },
+        'blog:deleted': (data) => {
+            const deletedId = data.blog_id || data.id;
+            setBlogs(prev => prev.filter(b => b.blog_id !== deletedId));
+        },
+    });
+
+    // Filter projects based on search and tech stack (exclude own)
     const filteredProjects = projects.filter(project => {
+        if (user && project.user_username === user.username) return false;
+
         const matchesSearch = !searchQuery ||
             project.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+            project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            project.user_username?.toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesTech = selectedTech.length === 0 ||
             selectedTech.some(tech => project.tech_stack?.includes(tech));
@@ -75,6 +123,18 @@ export default function Explore() {
         );
     };
 
+    // Filter blogs based on search (exclude own)
+    const filteredBlogs = blogs.filter(blog => {
+        if (user && blog.author_username === user.username) return false;
+
+        return !searchQuery ||
+            blog.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            blog.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            blog.author_username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            blog.author_full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            blog.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    });
+
     return (
         <div className="min-h-screen bg-background">
             <Header />
@@ -83,10 +143,10 @@ export default function Explore() {
                 {/* Hero Section */}
                 <div className="text-center mb-8">
                     <h1 className="font-heading font-bold text-3xl sm:text-4xl tracking-tight text-foreground mb-3">
-                        Explore Projects & Developers
+                        Explore
                     </h1>
                     <p className="text-muted-foreground max-w-2xl mx-auto">
-                        Discover what developers are building in public. Find inspiration, learn, and connect.
+                        Discover projects, blogs, and developers. Find inspiration, learn, and connect.
                     </p>
                 </div>
 
@@ -123,6 +183,18 @@ export default function Explore() {
                         >
                             <Code2 className="w-4 h-4 inline-block mr-2" />
                             Projects
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('blogs')}
+                            className={`
+                                px-4 py-2 rounded-md text-sm font-medium transition-all
+                                ${activeTab === 'blogs'
+                                    ? 'bg-card text-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'}
+                            `}
+                        >
+                            <PenSquare className="w-4 h-4 inline-block mr-2" />
+                            Blogs
                         </button>
                         <button
                             onClick={() => setActiveTab('developers')}
@@ -179,8 +251,8 @@ export default function Explore() {
                     </div>
                 </div>
 
-                {/* Filter Panel */}
-                {showFilters && (
+                {/* Filter Panel — only for projects tab */}
+                {showFilters && activeTab === 'projects' && (
                     <div className="mb-6 p-4 rounded-lg border border-border bg-card">
                         <h3 className="text-sm font-medium text-foreground mb-3">Tech Stack</h3>
                         <div className="flex flex-wrap gap-2">
@@ -210,6 +282,26 @@ export default function Explore() {
                     </div>
                 )}
 
+                {/* Blog Category Filter — only for blogs tab */}
+                {activeTab === 'blogs' && (
+                    <div className="flex gap-1 p-1 bg-muted rounded-lg mb-6 w-fit">
+                        {BLOG_CATEGORIES.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setActiveCategory(cat)}
+                                className={`
+                                    px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-all
+                                    ${activeCategory === cat
+                                        ? 'bg-card text-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground'}
+                                `}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Content */}
                 {loading ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -235,6 +327,20 @@ export default function Explore() {
                             description="Be the first to publish a project!"
                         />
                     )
+                ) : activeTab === 'blogs' ? (
+                    /* Blogs Grid */
+                    filteredBlogs.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredBlogs.map(blog => (
+                                <BlogCard key={blog.blog_id} blog={blog} />
+                            ))}
+                        </div>
+                    ) : (
+                        <EmptyState
+                            title="No blogs found"
+                            description="Be the first to publish a blog post!"
+                        />
+                    )
                 ) : (
                     /* Developers Grid */
                     developers.length > 0 ? (
@@ -245,8 +351,8 @@ export default function Explore() {
                         </div>
                     ) : (
                         <EmptyState
-                            title="No developers yet"
-                            description="Developers will appear here as they publish projects."
+                            title={searchQuery ? "No developers matching your search" : "No developers yet"}
+                            description={searchQuery ? "Try a different search term" : "New developers will appear here as they join!"}
                         />
                     )
                 )}
@@ -312,7 +418,14 @@ const ProjectCard = ({ project }) => {
                 {/* Author & Stats */}
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
                     <span className="text-xs text-muted-foreground">
-                        by @{project.user_username}
+                        by{' '}
+                        <Link
+                            to={`/profile/${project.user_username}`}
+                            className="hover:text-accent hover:underline transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            @{project.user_username}
+                        </Link>
                     </span>
                     <div className="flex items-center gap-3 text-muted-foreground">
                         {project.github_url && (

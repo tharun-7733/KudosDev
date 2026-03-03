@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { blogAPI } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { Header } from '../components/layout/Header';
@@ -11,12 +11,14 @@ import CommentSection from '../components/blog/CommentSection';
 import ShareButtons from '../components/blog/ShareButtons';
 import { toast } from 'sonner';
 import {
-    Clock, Eye, Calendar, Tag, ArrowLeft, Bookmark, BookmarkCheck
+    Clock, Eye, Calendar, Tag, ArrowLeft, Bookmark, BookmarkCheck,
+    Trash2, Edit2
 } from 'lucide-react';
 
 export default function BlogPost() {
     const { slug } = useParams();
-    const { isAuthenticated } = useAuth();
+    const navigate = useNavigate();
+    const { isAuthenticated, user } = useAuth();
     const [blog, setBlog] = useState(null);
     const [loading, setLoading] = useState(true);
     const [bookmarked, setBookmarked] = useState(false);
@@ -57,6 +59,19 @@ export default function BlogPost() {
         });
     };
 
+    const isAuthor = user && blog && user.email === blog.author_email;
+
+    const handleDelete = async () => {
+        if (!window.confirm('Are you sure you want to delete this blog? This action cannot be undone.')) return;
+        try {
+            await blogAPI.delete(blog.blog_id);
+            toast.success('Blog deleted successfully');
+            navigate('/blogs');
+        } catch {
+            toast.error('Failed to delete blog');
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-background">
@@ -95,10 +110,28 @@ export default function BlogPost() {
             <Header />
 
             <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-                {/* Back link */}
-                <Link to="/blogs" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8">
-                    <ArrowLeft className="w-4 h-4" /> All Blogs
-                </Link>
+                {/* Top bar */}
+                <div className="flex items-center justify-between mb-8">
+                    <Link to="/blogs" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <ArrowLeft className="w-4 h-4" /> All Blogs
+                    </Link>
+                    {isAuthor && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => navigate(`/blog/edit/${blog.blog_id}`)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+                            >
+                                <Edit2 className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
 
                 {/* Cover Image */}
                 {blog.cover_image_url && (
@@ -130,15 +163,15 @@ export default function BlogPost() {
 
                 {/* Author & Meta */}
                 <div className="flex flex-wrap items-center gap-4 mb-8 pb-8 border-b border-border">
-                    <div className="flex items-center gap-3">
+                    <Link to={`/profile/${blog.author_username}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-primary flex items-center justify-center text-white font-bold">
                             {blog.author_full_name?.charAt(0) || '?'}
                         </div>
                         <div>
-                            <p className="font-medium text-foreground text-sm">{blog.author_full_name}</p>
+                            <p className="font-medium text-foreground text-sm hover:text-accent transition-colors">{blog.author_full_name}</p>
                             <p className="text-xs text-muted-foreground">@{blog.author_username}</p>
                         </div>
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground ml-auto">
                         <span className="flex items-center gap-1">
                             <Calendar className="w-3.5 h-3.5" />

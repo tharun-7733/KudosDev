@@ -35,7 +35,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/profile/:username" element={<Profile />} />
-              <Route path="/blogs" element={<BlogExplore />} />
+              <Route path="/blogs" element={<Navigate to="/explore" replace />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route
                 path="/blog/new"

@@ -7,6 +7,7 @@ const morgan = require('morgan');
 
 const connectDB = require('./src/config/db');
 const analyticsRoutes = require('./src/routes/analyticsRoutes');
+const { router: streamRoutes, startChangeStream } = require('./src/routes/streamRoutes');
 const errorHandler = require('./src/middleware/errorHandler');
 const rateLimiter = require('./src/middleware/rateLimiter');
 const AppError = require('./src/utils/AppError');
@@ -37,6 +38,7 @@ app.use('/api', rateLimiter);
 // ─── Routes ────────────────────────────────────────────────────────────────────
 
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/analytics', streamRoutes);
 
 app.all('*', (req, _res, next) => {
     next(new AppError(`Cannot find ${req.method} ${req.originalUrl}`, 404));
@@ -50,6 +52,9 @@ app.use(errorHandler);
 
 const startServer = async () => {
     await connectDB();
+
+    // Start MongoDB Change Stream watcher for live analytics
+    startChangeStream();
 
     const server = app.listen(PORT, () => {
         console.log(`Analytics server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
@@ -68,3 +73,4 @@ const startServer = async () => {
 };
 
 startServer();
+

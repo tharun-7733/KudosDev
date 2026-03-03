@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Clock, Eye, MessageSquare, Flame } from 'lucide-react';
 
 export default function BlogCard({ blog }) {
@@ -58,11 +58,18 @@ export default function BlogCard({ blog }) {
 
                 {/* Author & Meta */}
                 <div className="flex items-center justify-between pt-3 border-t border-border">
-                    <div className="flex items-center gap-2">
+                    <div
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.location.href = `/profile/${blog.author_username}`;
+                        }}
+                    >
                         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-accent to-primary flex items-center justify-center text-white text-xs font-bold">
                             {blog.author_full_name?.charAt(0) || '?'}
                         </div>
-                        <span className="text-xs text-muted-foreground">{blog.author_full_name}</span>
+                        <span className="text-xs text-muted-foreground hover:text-accent transition-colors">{blog.author_full_name}</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">

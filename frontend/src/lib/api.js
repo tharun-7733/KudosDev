@@ -36,6 +36,12 @@ export const authAPI = {
 // User APIs
 export const userAPI = {
     getByUsername: (username) => api.get(`/api/users/${username}`),
+    follow: (username) => api.post(`/api/users/${username}/follow`),
+    unfollow: (username) => api.delete(`/api/users/${username}/follow`),
+    getFollowers: (username) => api.get(`/api/users/${username}/followers`),
+    getFollowing: (username) => api.get(`/api/users/${username}/following`),
+    isFollowing: (username) => api.get(`/api/users/${username}/is-following`),
+    getDevelopers: (params) => api.get('/api/developers', { params }),
 };
 
 // Project APIs

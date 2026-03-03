@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Header } from '../components/layout/Header';
@@ -17,9 +18,13 @@ import {
     Camera,
     Github,
     Linkedin,
-    Globe
+    Globe,
+    Bookmark,
+    BookmarkX,
+    Clock,
+    Eye
 } from 'lucide-react';
-import { blogAPI } from '../lib/api'; // Reuse blogAPI.uploadImage for avatar for now, or use a more general one if exists
+import { blogAPI } from '../lib/api';
 
 export default function Settings() {
     const { user, updateUser } = useAuth();
@@ -29,6 +34,10 @@ export default function Settings() {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = React.useRef(null);
+
+    // Bookmarks State
+    const [bookmarkedBlogs, setBookmarkedBlogs] = useState([]);
+    const [bookmarksLoading, setBookmarksLoading] = useState(false);
 
     // Profile State
     const [profileData, setProfileData] = useState({
@@ -128,9 +137,40 @@ export default function Settings() {
         }
     };
 
+    // Fetch bookmarked blogs when the bookmarks tab is active
+    useEffect(() => {
+        if (activeTab === 'bookmarks') {
+            fetchBookmarks();
+        }
+    }, [activeTab]);
+
+    const fetchBookmarks = async () => {
+        setBookmarksLoading(true);
+        try {
+            const res = await blogAPI.getBookmarks();
+            setBookmarkedBlogs(res.data || []);
+        } catch (error) {
+            console.error('Failed to fetch bookmarks:', error);
+            toast.error('Failed to load bookmarks');
+        } finally {
+            setBookmarksLoading(false);
+        }
+    };
+
+    const handleRemoveBookmark = async (blogId) => {
+        try {
+            await blogAPI.toggleBookmark(blogId);
+            setBookmarkedBlogs(prev => prev.filter(b => b.blog_id !== blogId));
+            toast.success('Bookmark removed');
+        } catch (error) {
+            toast.error('Failed to remove bookmark');
+        }
+    };
+
     const tabs = [
         { id: 'profile', label: 'Public Profile', icon: UserCircle },
         { id: 'account', label: 'Account Settings', icon: Lock },
+        { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
         { id: 'appearance', label: 'Appearance', icon: Palette },
     ];
 
@@ -464,6 +504,124 @@ export default function Settings() {
                                         Your theme preference is saved automatically to your browser.
                                     </p>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'bookmarks' && (
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground">Bookmarked Blogs</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Blogs you've saved for later reading.
+                                    </p>
+                                </div>
+
+                                {bookmarksLoading ? (
+                                    <div className="space-y-4">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className="flex gap-4 p-4 rounded-lg border border-border animate-pulse">
+                                                <div className="w-20 h-20 bg-muted rounded-md flex-shrink-0" />
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-4 bg-muted rounded w-3/4" />
+                                                    <div className="h-3 bg-muted rounded w-1/2" />
+                                                    <div className="h-3 bg-muted rounded w-1/4" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : bookmarkedBlogs.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {bookmarkedBlogs.map(blog => (
+                                            <div
+                                                key={blog.blog_id}
+                                                className="group flex items-start gap-4 p-4 rounded-lg border border-border bg-background hover:border-accent/40 transition-all"
+                                            >
+                                                {/* Cover image */}
+                                                <Link
+                                                    to={`/blog/${blog.slug}`}
+                                                    className="w-20 h-20 rounded-md bg-muted overflow-hidden flex-shrink-0"
+                                                >
+                                                    {blog.cover_image_url ? (
+                                                        <img
+                                                            src={blog.cover_image_url}
+                                                            alt={blog.title}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                                            <Bookmark className="w-6 h-6" />
+                                                        </div>
+                                                    )}
+                                                </Link>
+
+                                                {/* Blog info */}
+                                                <div className="flex-1 min-w-0">
+                                                    <Link
+                                                        to={`/blog/${blog.slug}`}
+                                                        className="font-medium text-foreground hover:text-accent transition-colors line-clamp-1"
+                                                    >
+                                                        {blog.title}
+                                                    </Link>
+                                                    {blog.subtitle && (
+                                                        <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                                                            {blog.subtitle}
+                                                        </p>
+                                                    )}
+                                                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                                        <span>by @{blog.author_username}</span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            {blog.reading_time_minutes} min read
+                                                        </span>
+                                                        {blog.view_count > 0 && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Eye className="w-3 h-3" />
+                                                                {blog.view_count}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {blog.tags?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-2">
+                                                            {blog.tags.slice(0, 3).map(tag => (
+                                                                <span
+                                                                    key={tag}
+                                                                    className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                                                                >
+                                                                    {tag}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Remove bookmark button */}
+                                                <button
+                                                    onClick={() => handleRemoveBookmark(blog.blog_id)}
+                                                    className="flex-shrink-0 p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Remove bookmark"
+                                                >
+                                                    <BookmarkX className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                            <Bookmark className="w-7 h-7 text-muted-foreground" />
+                                        </div>
+                                        <h4 className="font-medium text-foreground mb-1">No bookmarks yet</h4>
+                                        <p className="text-sm text-muted-foreground mb-4">
+                                            Save blogs you want to read later by clicking the bookmark icon.
+                                        </p>
+                                        <Link
+                                            to="/blog"
+                                            className="inline-flex items-center gap-2 text-sm text-accent hover:underline font-medium"
+                                        >
+                                            Browse Blogs →
+                                        </Link>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

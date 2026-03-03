@@ -161,15 +161,6 @@ export const AnalyticsCard = ({ stats, isOwnProfile, followerList = [], followin
                 { key: 'blogViews', label: 'Blog Views', icon: BookOpen, color: 'text-teal-500' },
                 { key: 'blogReactions', label: 'Blog Reactions', icon: Heart, color: 'text-pink-500' },
             ]
-        },
-        {
-            title: 'Network & Impact',
-            icon: Users,
-            items: [
-                { key: 'followers', label: 'Followers', icon: Users, color: 'text-purple-500' },
-                { key: 'following', label: 'Following', icon: TrendingUp, color: 'text-cyan-500' },
-                { key: 'profileVisits', label: 'Profile Visits', icon: Activity, color: 'text-orange-500' },
-            ]
         }
     ];
 
@@ -186,18 +177,18 @@ export const AnalyticsCard = ({ stats, isOwnProfile, followerList = [], followin
 
             {/* ── Header ── */}
             <div className="relative px-6 pt-6 pb-4 border-b border-border/50">
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-60" />
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-80" />
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent/20 to-primary/10 flex items-center justify-center border border-accent/10">
-                            <BarChart3 className="w-4.5 h-4.5 text-accent" />
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent/20 to-primary/10 flex items-center justify-center border border-accent/20">
+                            <BarChart3 className="w-5 h-5 text-accent" />
                         </div>
                         <div>
-                            <h2 className="font-heading font-semibold text-lg text-foreground">
+                            <h2 className="font-heading font-bold text-xl text-foreground">
                                 {isOwnProfile ? 'Your Analytics' : 'Developer Insights'}
                             </h2>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium opacity-60">
-                                performance breakdown
+                            <p className="text-xs text-muted-foreground tracking-wide font-medium mt-0.5">
+                                Performance Breakdown
                             </p>
                         </div>
                     </div>
@@ -208,8 +199,8 @@ export const AnalyticsCard = ({ stats, isOwnProfile, followerList = [], followin
             <div className="p-6 space-y-8">
                 {sections.map((section, sIdx) => (
                     <div key={section.title} className="space-y-4">
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-2 opacity-80">
-                            <section.icon className="w-3.5 h-3.5" />
+                        <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                            <section.icon className="w-4 h-4 text-accent" />
                             {section.title}
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -221,13 +212,13 @@ export const AnalyticsCard = ({ stats, isOwnProfile, followerList = [], followin
                                         key={key}
                                         onClick={isInteractive ? () => setActiveSection(key) : undefined}
                                         className={`
-                                            group relative overflow-hidden rounded-xl p-4
+                                            group relative overflow-hidden rounded-xl p-5
                                             bg-gradient-to-br ${config.gradient}
-                                            border border-border/20 
-                                            hover:border-border/50
+                                            border border-border/30 
+                                            hover:border-border/60
                                             shadow-sm ${config.glow} hover:shadow-lg
                                             transition-all duration-300 ease-out
-                                            ${isInteractive ? 'cursor-pointer hover:-translate-y-1 hover:scale-[1.02]' : 'cursor-default'}
+                                            ${isInteractive ? 'cursor-pointer hover:-translate-y-1 hover:scale-[1.02]' : 'cursor-default hover:-translate-y-0.5'}
                                         `}
                                     >
                                         <div className="absolute bottom-0 right-0">
@@ -235,25 +226,25 @@ export const AnalyticsCard = ({ stats, isOwnProfile, followerList = [], followin
                                         </div>
 
                                         <div className={`
-                                            w-8 h-8 rounded-lg ring-1 ${config.ring}
+                                            w-9 h-9 rounded-lg ring-1 ${config.ring}
                                             bg-background/80 backdrop-blur-sm
                                             flex items-center justify-center mb-3
                                             group-hover:scale-110 transition-transform duration-300
                                         `}>
-                                            <Icon className={`w-4 h-4 ${color}`} />
+                                            <Icon className={`w-4.5 h-4.5 ${color}`} />
                                         </div>
 
-                                        <p className="text-2xl font-bold text-foreground tracking-tight leading-none mb-1 relative z-10">
+                                        <p className="text-3xl font-extrabold text-foreground tracking-tight leading-none mb-2 relative z-10">
                                             {formatNumber(animatedStats[key] ?? 0)}
                                         </p>
 
                                         <div className="flex items-center justify-between relative z-10">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                            <p className="text-xs font-semibold text-foreground/80 tracking-wide">
                                                 {label}
                                             </p>
                                             {isInteractive && (
-                                                <span className="text-[9px] font-medium text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    View All
+                                                <span className="text-[10px] font-semibold text-accent opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    View All →
                                                 </span>
                                             )}
                                         </div>

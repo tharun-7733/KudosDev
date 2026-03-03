@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { BookOpen, Moon, Sun, Plus, PenSquare } from 'lucide-react';
+import { BookOpen, Moon, Sun, Plus } from 'lucide-react';
 import { ProfileDropdown } from '../profile/ProfileDropdown';
 
 export const Header = () => {
@@ -51,13 +51,22 @@ export const Header = () => {
                                     <span className="sm:hidden">Publish</span>
                                 </Link>
 
-                                {/* Manage Projects */}
+                                {/* My Projects */}
                                 <Link
                                     to="/dashboard"
                                     className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
                                 >
-                                    <span className="hidden sm:inline">Manage Projects</span>
+                                    <span className="hidden sm:inline">My Projects</span>
                                     <span className="sm:hidden">Projects</span>
+                                </Link>
+
+                                {/* My Blogs */}
+                                <Link
+                                    to="/dashboard/blogs"
+                                    className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
+                                >
+                                    <span className="hidden sm:inline">My Blogs</span>
+                                    <span className="sm:hidden">Blogs</span>
                                 </Link>
 
                                 {/* Explore */}
@@ -68,13 +77,6 @@ export const Header = () => {
                                     Explore
                                 </Link>
 
-                                {/* Blog */}
-                                <Link
-                                    to="/blogs"
-                                    className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
-                                >
-                                    Blog
-                                </Link>
 
                                 {/* Careers */}
                                 <Link
@@ -110,13 +112,6 @@ export const Header = () => {
                                     Explore
                                 </Link>
 
-                                {/* Blog - visible to everyone */}
-                                <Link
-                                    to="/blogs"
-                                    className="text-sm text-foreground hover:text-accent transition-colors px-3 py-2 rounded-md hover:bg-muted"
-                                >
-                                    Blog
-                                </Link>
 
                                 {/* Careers - visible to everyone */}
                                 <Link

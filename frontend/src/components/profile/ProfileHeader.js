@@ -1,13 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Edit2, Share2, MapPin, Calendar, ExternalLink, Code2 } from 'lucide-react';
+import { Edit2, Share2, MapPin, Calendar, ExternalLink, Code2, Users, Eye } from 'lucide-react';
 
 /**
  * ProfileHeader - Displays user avatar, name, bio, and action buttons
  * Renders differently for own profile vs public profile
  */
-export const ProfileHeader = ({ user, isOwnProfile, onFollow, isFollowing, onShare }) => {
+export const ProfileHeader = ({ user, isOwnProfile, onFollow, isFollowing, onShare, stats, onShowFollowers, onShowFollowing }) => {
     const navigate = useNavigate();
 
     const getInitials = (name) => {
@@ -100,6 +100,26 @@ export const ProfileHeader = ({ user, isOwnProfile, onFollow, isFollowing, onSha
                                         Website
                                     </a>
                                 )}
+                            </div>
+
+                            {/* Follower / Following Stats */}
+                            <div className="flex items-center gap-6 mt-4">
+                                <button
+                                    onClick={onShowFollowers}
+                                    className="flex items-center gap-1.5 hover:text-accent transition-colors group"
+                                >
+                                    <Users className="w-4 h-4 text-muted-foreground group-hover:text-accent" />
+                                    <span className="font-bold text-foreground text-sm">{stats?.followers ?? 0}</span>
+                                    <span className="text-sm text-muted-foreground">Followers</span>
+                                </button>
+                                <button
+                                    onClick={onShowFollowing}
+                                    className="flex items-center gap-1.5 hover:text-accent transition-colors group"
+                                >
+                                    <Users className="w-4 h-4 text-muted-foreground group-hover:text-accent" />
+                                    <span className="font-bold text-foreground text-sm">{stats?.following ?? 0}</span>
+                                    <span className="text-sm text-muted-foreground">Following</span>
+                                </button>
                             </div>
                         </div>
 
