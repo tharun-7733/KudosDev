@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: kudosd-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false          # Set manually in Render dashboard (e.g., kudosdev-44520.firebasestorage.app)
+      - key: SECRET_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: GOOGLE_CLIENT_ID
+        sync: false          # Set manually in Render dashboard
+      - key: FRONTEND_URL
+        value: https://kudos-dev-eight.vercel.app
+      - key: SMTP_HOST
+        sync: false          # Set manually in Render dashboard
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false          # Set manually in Render dashboard
+      - key: SMTP_PASS
+        sync: false          # Set manually in Render dashboard
+      - key: SMTP_FROM
+        sync: false          # Set manually in Render dashboard
